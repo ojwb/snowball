@@ -248,6 +248,8 @@ enum name_types {
       3 |  routine
       4 |  external
       5 |  grouping
+
+    Only the C generator currently uses this, and only for the first 3 types.
 */
 
 struct analyser {
@@ -282,7 +284,7 @@ extern void print_program(struct analyser * a);
 extern struct analyser * create_analyser(struct tokeniser * t);
 extern void close_analyser(struct analyser * a);
 
-extern void read_program(struct analyser * a);
+extern void read_program(struct analyser * a, int make_lang);
 
 struct generator {
 

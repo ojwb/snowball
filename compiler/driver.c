@@ -457,7 +457,7 @@ extern int main(int argc, char * argv[]) {
                 next_input_ptr = &(q->next);
             }
             *next_input_ptr = NULL;
-            read_program(a);
+            read_program(a, o->make_lang);
             if (t->error_count > 0) exit(1);
             if (o->syntax_tree) print_program(a);
             close_tokeniser(t);

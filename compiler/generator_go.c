@@ -37,6 +37,7 @@ static void write_varname(struct generator * g, struct name * p) {
             free(rest);
             return;
         default: {
+            /* Name local variables the same. */
             int ch = "SbirxG"[p->type];
             write_char(g, ch);
             write_char(g, '_');
@@ -47,7 +48,8 @@ static void write_varname(struct generator * g, struct name * p) {
 }
 
 static void write_varref(struct generator * g, struct name * p) {
-    write_string(g, "context.");
+    if (p->type >= t_routine || p->local_to == NULL)
+        write_string(g, "context.");
     write_varname(g, p);
 }
 
@@ -984,12 +986,30 @@ static void generate_define(struct generator * g, struct node * p) {
         w(g, "~N~Mfunc ~W0(env *snowballRuntime.Env) bool {~+~N");
         generate_setup_context(g);
     }
-    if (p->amongvar_needed) w(g, "~Mvar among_var int32~N");
     g->outbuf = str_new();
 
     g->next_label = 0;
     g->var_number = 0;
 
+    {
+        /* Declare local variables. */
+        struct name * name;
+        for (name = g->analyser->names; name; name = name->next) {
+            if (name->local_to == q) {
+                g->V[0] = name;
+                switch (name->type) {
+                    case t_integer:
+                        writef(g, "~Mvar ~V0 int32;~N", p);
+                        break;
+                    case t_boolean:
+                        writef(g, "~Mvar ~V0 bool;~N", p);
+                        break;
+                }
+            }
+        }
+    }
+
+    if (p->amongvar_needed) w(g, "~Mvar among_var int32~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
     g->unreachable = false;
@@ -1175,7 +1195,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
                 w(g, "F:");
                 write_varname(g, v->function);
             } else {
-              w(g, "F:nil");
+                w(g, "F:nil");
             }
             w(g, "}~S0~N");
             v++;
@@ -1205,7 +1225,7 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
     for (i = 0; i < SIZE(b); i++) set_bit(map, b[i] - q->smallest_ch);
 
     g->V[0] = q->name;
-    g->I[0] = size;
+
     w(g, "~Mvar ~W0 = []byte{");
     for (i = 0; i < size; i++) {
         write_int(g, map[i]);
@@ -1229,6 +1249,7 @@ static void generate_members(struct generator * g) {
     struct name * q;
     w(g, "type Context struct {~+~N");
     for (q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         g->V[0] = q;
         switch (q->type) {
             case t_string:

@@ -33,6 +33,7 @@ static void write_varname(struct generator * g, struct name * p) {
         case t_external:
             break;
         default: {
+            /* Name local variables the same. */
             int ch = "SbirxG"[p->type];
             write_char(g, ch);
             write_char(g, '_');
@@ -983,12 +984,29 @@ static void generate_define(struct generator * g, struct node * p) {
         w(g, "~N~Mpub fn ~W0(env: &mut SnowballEnv) -> bool {~+~N");
         generate_setup_context(g);
     }
-    if (p->amongvar_needed) w(g, "~Mlet mut among_var;~N");
     g->outbuf = str_new();
 
     g->next_label = 0;
     g->var_number = 0;
 
+    {
+        /* Declare local variables. */
+        struct name * name;
+        for (name = g->analyser->names; name; name = name->next) {
+            if (name->local_to == q) {
+                g->V[0] = name;
+                switch (name->type) {
+                    case t_integer:
+                        writef(g, "~Mlet mut ~V0 : usize;~N", p);
+                        break;
+                    case t_boolean:
+                        writef(g, "~Mlet mut ~V0 : bool;~N", p);
+                        break;
+                }
+            }
+        }
+    }
+    if (p->amongvar_needed) w(g, "~Mlet mut among_var;~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
     g->unreachable = false;
@@ -1240,6 +1258,7 @@ static void generate_members(struct generator * g) {
     w(g, "#[derive(Clone)]~N");
     w(g, "struct Context {~+~N");
     for (q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         g->V[0] = q;
         switch (q->type) {
             case t_string:

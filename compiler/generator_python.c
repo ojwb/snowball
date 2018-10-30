@@ -39,6 +39,7 @@ static void write_varname(struct generator * g, struct name * p) {
             write_string(g, "__");
             /* FALLTHRU */
         default: {
+            /* Name local variables the same. */
             int ch = "SBIrxg"[p->type];
             write_char(g, ch);
             write_char(g, '_');
@@ -49,7 +50,8 @@ static void write_varname(struct generator * g, struct name * p) {
 }
 
 static void write_varref(struct generator * g, struct name * p) {
-    write_string(g, "self.");
+    if (p->type >= t_routine || p->local_to == NULL)
+        write_string(g, "self.");
     write_varname(g, p);
 }
 
@@ -1233,6 +1235,7 @@ static void generate_members(struct generator * g) {
 
     struct name * q;
     for (q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         g->V[0] = q;
         switch (q->type) {
             case t_string:

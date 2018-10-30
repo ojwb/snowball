@@ -1,4 +1,5 @@
 
+#include <ctype.h>   /* for tolower() */
 #include <limits.h>  /* for INT_MAX */
 #include <stdio.h>   /* for fprintf etc */
 #include <stdlib.h>  /* for free etc */
@@ -44,17 +45,26 @@ static void write_varname(struct generator * g, struct name * p) {
         case t_string:
         case t_boolean:
         case t_integer: {
-            int count = p->count;
-            if (count < 0) {
-                fprintf(stderr, "Reference to optimised out variable ");
-                report_b(stderr, p->b);
-                fprintf(stderr, " attempted\n");
-                exit(1);
+            if (p->local_to != NULL) {
+                /* Name local variables as s_ b_ or i_ plus their snowball
+                 * variable name.
+                 */
+                write_char(g, tolower(ch));
+                write_char(g, '_');
+                write_b(g, p->b);
+            } else {
+                int count = p->count;
+                if (count < 0) {
+                    fprintf(stderr, "Reference to optimised out variable ");
+                    report_b(stderr, p->b);
+                    fprintf(stderr, " attempted\n");
+                    exit(1);
+                }
+                write_char(g, ch);
+                write_char(g, '[');
+                write_int(g, count);
+                write_char(g, ']');
             }
-            write_char(g, ch);
-            write_char(g, '[');
-            write_int(g, count);
-            write_char(g, ']');
             return;
         }
         default:
@@ -64,7 +74,8 @@ static void write_varname(struct generator * g, struct name * p) {
 }
 
 static void write_varref(struct generator * g, struct name * p) {  /* reference to variable */
-    if (p->type < t_routine) write_string(g, "z->");
+    if (p->type < t_routine && p->local_to == NULL)
+        write_string(g, "z->");
     write_varname(g, p);
 }
 
@@ -1154,6 +1165,25 @@ static void generate_define(struct generator * g, struct node * p) {
         write_string(g, p->mode == m_forward ? " /* forwardmode */" : " /* backwardmode */");
     }
     w(g, "~N~+");
+
+    {
+        /* Declare local variables. */
+        struct name * name;
+        for (name = g->analyser->names; name; name = name->next) {
+            if (name->local_to == q) {
+                g->V[0] = name;
+                switch (name->type) {
+                    case t_integer:
+                        writef(g, "~Mint ~V0;~N", p);
+                        break;
+                    case t_boolean:
+                        writef(g, "~Munsigned char ~V0;~N", p);
+                        break;
+                }
+            }
+        }
+    }
+
     if (p->amongvar_needed) w(g, "~Mint among_var;~N");
     g->failure_keep_count = 0;
     g->failure_label = x_return;
@@ -1598,16 +1628,8 @@ static void generate_header_file(struct generator * g) {
             case t_integer: g->S[1] = "I"; goto label0;
             case t_boolean: g->S[1] = "B";
             label0:
-                if (vp) {
-                    int count = q->count;
-                    if (count < 0) {
-                        /* Unused variables should get removed from `names`. */
-                        fprintf(stderr, "Optimised out variable ");
-                        report_b(stderr, q->b);
-                        fprintf(stderr, " still in names list\n");
-                        exit(1);
-                    }
-                    g->I[0] = count;
+                if (vp && q->count >= 0) {
+                    g->I[0] = q->count;
                     w(g, "#define ~S0");
                     write_b(g, q->b);
                     w(g, " (~S1[~I0])~N");

@@ -287,8 +287,10 @@ handle_as_name:
                     p->b = copy_b(t->b);
                     p->type = type;
                     p->mode = -1; /* routines, externals */
-                    /* We defer assigning counts until after we've eliminated
-                     * variables whose values are never used. */
+                    /* Delay assigning counts until after we've eliminated
+                     * variables whose values are never used and checked if
+                     * any variables of this type can be localised.
+                     */
                     p->count = -1;
                     p->referenced = false;
                     p->used_in_among = false;
@@ -1222,7 +1224,229 @@ static void remove_dead_assignments(struct node * p, struct name * q) {
     if (p->right) remove_dead_assignments(p->right, q);
 }
 
-extern void read_program(struct analyser * a) {
+enum { FAIL = -1, UNKNOWN = 0, PASS = 1 };
+
+/* Find out if every codepath from p to a use of variable v sets the variable
+ * first.
+ *
+ * This isn't complete, but handles all cases in existing stemmers, and errs
+ * by being too conservative.
+ */
+static int always_set_before_use(struct node * p,struct node * func, struct name * v) {
+    int r;
+    while (p) {
+        switch (p->type) {
+            case c_call: {
+                /* Currently at least we know other functions can't touch v, so
+                 * we're only concerned to know if we can end up in a recursive
+                 * call to func. */
+                if (p->name->definition == func) {
+                    /* We've recursed into the function we're considering
+                     * localising this variable into, which means we can't
+                     * localise it.
+                     */
+                    return FAIL;
+                }
+                r = always_set_before_use(p->name->definition, func, v);
+                if (r != UNKNOWN) return r;
+                break;
+            }
+            case c_among: {
+                /* FIXME: If first p->left is c_bra, handle specially as always
+                 * executed... */
+                struct node * q = p->left;
+                int all_pass = true;
+                while (q) {
+                    r = always_set_before_use(q, func, v);
+                    if (r == FAIL) return r;
+                    all_pass = all_pass && (r == PASS);
+                    q = q->right;
+                }
+                if (all_pass) return PASS;
+                break;
+            }
+            case c_or: {
+                struct node * q = p->left;
+                int all_pass = true;
+                while (q) {
+                    r = always_set_before_use(q, func, v);
+                    if (r == FAIL) return r;
+                    all_pass = all_pass && (r == PASS);
+                    q = q->right;
+                }
+                if (all_pass) return PASS;
+                break;
+            }
+            case c_and: {
+                struct node * q = p->left;
+                while (q) {
+                    r = always_set_before_use(q, func, v);
+                    if (r != UNKNOWN) return r;
+                    q = q->right;
+                }
+                break;
+            }
+            case c_bra:
+            case c_test:
+                r = always_set_before_use(p->left, func, v);
+                if (r != UNKNOWN) return r;
+                break;
+            case c_define: /* FIXME? */
+            case c_do:
+            case c_gopast:
+            case c_goto:
+            case c_try:
+            case c_repeat:
+                r = always_set_before_use(p->left, func, v);
+                if (r == FAIL) return r;
+                /* FIXME: if the first command sets the variable and can't fail
+                 * in the process we should return PASS here.
+                 */
+                break;
+            case c_mathassign:
+                if (p->name == v)
+                    return PASS;
+                r = always_set_before_use(p->AE, func, v);
+                if (r == FAIL) return r;
+                break;
+            case c_assignto:
+            case c_set:
+            case c_setmark:
+            case c_sliceto:
+            case c_unset:
+                if (p->name == v)
+                    return PASS;
+                break;
+            case c_atlimit:
+            case c_backwards:
+            case c_delete:
+            case c_grouping:
+            case c_hop:
+            case c_le:
+            case c_leftslice:
+            case c_limit:
+            case c_literalstring:
+            case c_next:
+            case c_non:
+            case c_rightslice:
+            case c_debug:
+            case c_substring:
+                break;
+            case c_setlimit:
+                r = always_set_before_use(p->aux, func, v);
+                if (r != UNKNOWN) return r;
+                r = always_set_before_use(p->left, func, v);
+                if (r != UNKNOWN) return r;
+                break;
+            case c_slicefrom:
+                if (p->name == v) {
+                    return FAIL;
+                }
+                break;
+            default:
+                /* Pessimistic assumption for cases we don't handle yet. */
+                printf("Assuming the worst about '%s' (%d)\n", name_of_token(p->type), p->type);
+                return FAIL;
+        }
+        p = p->right;
+    }
+#if 0
+            if (p->AE) { }
+            if (p->left) { }
+            if (p->aux) { } /* setlimit */
+
+            if (p->right) { }
+        case c_as:
+            abort();
+
+        case c_assign: /*OK*/
+
+        case c_attach: /*OK*/
+        case c_booltest: /*OK*/
+        case c_insert: /*OK*/
+        case c_lenof: /*OK*/
+        case c_name: /*OK*/
+        case c_sizeof: /*OK*/
+            /* like c_slicefrom */
+            if (p->name == v) {
+                return FAIL;
+            }
+            break;
+
+        case c_dollar:
+            /* FIXME: Can set or read ... */
+
+        case c_divideassign:
+        case c_minusassign:
+        case c_multiplyassign:
+        case c_plusassign:
+            /* FIXME: use?  or a no-op for our purposes here? */
+
+
+        case c_atleast:
+
+        case c_atmark:
+        case c_backwardmode:
+
+        case c_booleans:
+        case c_cursor:
+
+        case c_decimal:
+        case c_divide:
+
+        case c_eq:
+        case c_externals:
+        case c_fail:
+        case c_false:
+        case c_for:
+        case c_ge:
+        case c_get:
+
+        case c_gr:
+        case c_groupings:
+        case c_hex:
+
+        case c_integers:
+        case c_ket:
+        case c_len:
+        case c_loop:
+
+        case c_ls:
+        case c_maxint:
+        case c_minint:
+        case c_minus:
+        case c_multiply:
+
+        case c_ne:
+        case c_not:
+        case c_plus:
+
+        case c_reverse:
+        case c_routines:
+
+        case c_size:
+
+        case c_strings:
+
+        case c_tolimit:
+        case c_tomark:
+        case c_true:
+
+        case c_number:
+
+        case c_neg:
+            break;
+
+
+    }
+
+    /* No setting or use on the code path to here. */
+    return true;
+#endif
+    return PASS;
+}
+
+extern void read_program(struct analyser * a, int make_lang) {
     read_program_(a, -1);
     {
         struct name * q = a->names;
@@ -1313,6 +1537,65 @@ extern void read_program(struct analyser * a) {
             }
         }
     }
+
+    /* Localise variables.
+     *
+     * We localise variables which are only referenced in a single function
+     * (routine or external) and which are always set before being read within
+     * that function (since a function could rely on a variable's previous
+     * value surviving).
+     *
+     * We could potentially localise variables referenced in multiple functions
+     * provided that they are always set before use in every function they are
+     * referenced in - we handle such cases because the current check is easier
+     * to implement and covers all the cases in the current stemmers.
+     */
+    {
+        struct name * name;
+        /* bitmask of variable types the generator can localise */
+        unsigned localise_mask = 0;
+        memset(a->name_count, 0, sizeof(a->name_count));
+        /* FIXME: This target language specific code doesn't really belong
+         * here. */
+        switch (make_lang) {
+            case LANG_C:
+            case LANG_CPLUSPLUS:
+            case LANG_CSHARP:
+            case LANG_GO:
+            case LANG_JAVA:
+            case LANG_RUST:
+                localise_mask = (1 << t_boolean) | (1 << t_integer);
+                break;
+            case LANG_JAVASCRIPT:
+            case LANG_PYTHON:
+                /* Javascript and Python strings are immutable, so we can't
+                 * modify them in place anyway, so we might as well localise
+                 * string variables too.
+                 *
+                 * FIXME: That's at the language level - perhaps in reality
+                 * things are optimised to avoid needless string copying and
+                 * we should profile here to check what's best.
+                 */
+                localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
+                break;
+        }
+        for (name = a->names; name; name = name->next) {
+            if (name->local_to != NULL) {
+                if (localise_mask & (1 << name->type)) {
+                    struct node * func = name->local_to->definition;
+                    printf("always_set_before_use(a->program) = %d\n", always_set_before_use(a->program, func, name));
+                    if (always_set_before_use(func, func, name) != PASS) {
+                        name->local_to = NULL;
+                    }
+                } else {
+                    name->local_to = NULL;
+                }
+            }
+            if (name->local_to == NULL) {
+                name->count = a->name_count[name->type]++;
+            }
+        }
+    }
 }
 
 extern struct analyser * create_analyser(struct tokeniser * t) {
@@ -1327,7 +1610,6 @@ extern struct analyser * create_analyser(struct tokeniser * t) {
     a->groupings = 0;
     a->mode = m_forward;
     a->modifyable = true;
-    { int i; for (i = 0; i < t_size; i++) a->name_count[i] = 0; }
     a->substring = 0;
     a->int_limits_used = false;
     return a;

@@ -29,8 +29,9 @@ static struct str * vars_newname(struct generator * g) {
 
 static void write_varname(struct generator * g, struct name * p) {
 
-    int ch = "SBIrxg"[p->type];
     if (p->type != t_external) {
+        /* Name local variables the same. */
+        int ch = "SBIrxg"[p->type];
         write_char(g, ch);
         write_char(g, '_');
     }
@@ -952,6 +953,24 @@ static void generate_define(struct generator * g, struct node * p) {
     g->next_label = 0;
     g->var_number = 0;
 
+    {
+        /* Declare local variables. */
+        struct name * name;
+        for (name = g->analyser->names; name; name = name->next) {
+            if (name->local_to == q) {
+                g->V[0] = name;
+                switch (name->type) {
+                    case t_integer:
+                        writef(g, "~Mint ~V0;~N", p);
+                        break;
+                    case t_boolean:
+                        writef(g, "~Mboolean ~V0;~N", p);
+                        break;
+                }
+            }
+        }
+    }
+
     if (p->amongvar_needed) w(g, "~Mint among_var;~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
@@ -1238,6 +1257,7 @@ static void generate_members(struct generator * g) {
 
     struct name * q;
     for (q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         g->V[0] = q;
         switch (q->type) {
             case t_string:
