@@ -284,7 +284,11 @@ extern void print_program(struct analyser * a);
 extern struct analyser * create_analyser(struct tokeniser * t);
 extern void close_analyser(struct analyser * a);
 
-extern void read_program(struct analyser * a, int make_lang);
+/** Read and analyse the program.
+ *
+ *  @param localise_mask  bitmask of variable types the generator can localise
+ */
+extern void read_program(struct analyser * a, unsigned localise_mask);
 
 struct generator {
 

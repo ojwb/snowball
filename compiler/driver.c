@@ -435,6 +435,7 @@ extern int main(int argc, char * argv[]) {
             struct tokeniser * t = create_tokeniser(u, file);
             struct analyser * a = create_analyser(t);
             struct input ** next_input_ptr = &(t->next);
+            unsigned localise_mask = 0;
             a->encoding = t->encoding = o->encoding;
             t->includes = o->includes;
             /* If multiple source files are specified, set up the others to be
@@ -457,7 +458,30 @@ extern int main(int argc, char * argv[]) {
                 next_input_ptr = &(q->next);
             }
             *next_input_ptr = NULL;
-            read_program(a, o->make_lang);
+            switch (o->make_lang) {
+                case LANG_C:
+                case LANG_CPLUSPLUS:
+                case LANG_CSHARP:
+                case LANG_GO:
+                case LANG_JAVA:
+                case LANG_PASCAL:
+                case LANG_RUST:
+                    localise_mask = (1 << t_boolean) | (1 << t_integer);
+                    break;
+                case LANG_JAVASCRIPT:
+                case LANG_PYTHON:
+                    /* Javascript and Python strings are immutable, so we can't
+                     * modify them in place anyway, so we might as well localise
+                     * string variables too.
+                     *
+                     * FIXME: That's at the language level - perhaps in reality
+                     * things are optimised to avoid needless string copying
+                     * and we should profile here to check what's best.
+                     */
+                    localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
+                    break;
+            }
+            read_program(a, localise_mask);
             if (t->error_count > 0) exit(1);
             if (o->syntax_tree) print_program(a);
             close_tokeniser(t);

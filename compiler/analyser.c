@@ -1446,7 +1446,7 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
     return PASS;
 }
 
-extern void read_program(struct analyser * a, int make_lang) {
+extern void read_program(struct analyser * a, unsigned localise_mask) {
     read_program_(a, -1);
     {
         struct name * q = a->names;
@@ -1552,33 +1552,7 @@ extern void read_program(struct analyser * a, int make_lang) {
      */
     {
         struct name * name;
-        /* bitmask of variable types the generator can localise */
-        unsigned localise_mask = 0;
         memset(a->name_count, 0, sizeof(a->name_count));
-        /* FIXME: This target language specific code doesn't really belong
-         * here. */
-        switch (make_lang) {
-            case LANG_C:
-            case LANG_CPLUSPLUS:
-            case LANG_CSHARP:
-            case LANG_GO:
-            case LANG_JAVA:
-            case LANG_RUST:
-                localise_mask = (1 << t_boolean) | (1 << t_integer);
-                break;
-            case LANG_JAVASCRIPT:
-            case LANG_PYTHON:
-                /* Javascript and Python strings are immutable, so we can't
-                 * modify them in place anyway, so we might as well localise
-                 * string variables too.
-                 *
-                 * FIXME: That's at the language level - perhaps in reality
-                 * things are optimised to avoid needless string copying and
-                 * we should profile here to check what's best.
-                 */
-                localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
-                break;
-        }
         for (name = a->names; name; name = name->next) {
             if (name->local_to != NULL) {
                 if (localise_mask & (1 << name->type)) {
