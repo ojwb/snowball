@@ -1173,11 +1173,9 @@ static void generate_define(struct generator * g, struct node * p) {
             if (name->local_to == q) {
                 g->V[0] = name;
                 switch (name->type) {
+                    case t_boolean:
                     case t_integer:
                         writef(g, "~Mint ~V0;~N", p);
-                        break;
-                    case t_boolean:
-                        writef(g, "~Munsigned char ~V0;~N", p);
                         break;
                 }
             }

@@ -1322,15 +1322,22 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
             case c_delete:
             case c_grouping:
             case c_hop:
-            case c_le:
             case c_leftslice:
             case c_limit:
             case c_literalstring:
             case c_next:
             case c_non:
+            case c_number:
             case c_rightslice:
             case c_debug:
             case c_substring:
+                break;
+            case c_eq:
+            case c_ne:
+            case c_gr:
+            case c_ge:
+            case c_ls:
+            case c_le:
                 break;
             case c_setlimit:
                 r = always_set_before_use(p->aux, func, v);
@@ -1345,6 +1352,7 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
                 break;
             default:
                 /* Pessimistic assumption for cases we don't handle yet. */
+		/* FIXME: c_not used by kraaij_pohlmann */
                 printf("Assuming the worst about '%s' (%d)\n", name_of_token(p->type), p->type);
                 return FAIL;
         }
@@ -1394,15 +1402,12 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
         case c_decimal:
         case c_divide:
 
-        case c_eq:
         case c_externals:
         case c_fail:
         case c_false:
         case c_for:
-        case c_ge:
         case c_get:
 
-        case c_gr:
         case c_groupings:
         case c_hex:
 
@@ -1411,13 +1416,10 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
         case c_len:
         case c_loop:
 
-        case c_ls:
         case c_maxint:
         case c_minint:
         case c_minus:
         case c_multiply:
-
-        case c_ne:
         case c_not:
         case c_plus:
 
@@ -1431,8 +1433,6 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
         case c_tolimit:
         case c_tomark:
         case c_true:
-
-        case c_number:
 
         case c_neg:
             break;
@@ -1557,10 +1557,18 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
             if (name->local_to != NULL) {
                 if (localise_mask & (1 << name->type)) {
                     struct node * func = name->local_to->definition;
-                    printf("always_set_before_use(a->program) = %d\n", always_set_before_use(a->program, func, name));
+                    printf("always_set_before_use(a->program, ");
+		    printf("<func>");
+                    printf(", ");
+		    report_b(stdout, name->b);
+                    printf(") = %d\n", always_set_before_use(a->program, func, name));
                     if (always_set_before_use(func, func, name) != PASS) {
                         name->local_to = NULL;
-                    }
+                    } else {
+			printf("SUCCESSFULLY LOCALISED ");
+			report_b(stdout, name->b);
+			printf("\n");
+		    }
                 } else {
                     name->local_to = NULL;
                 }
