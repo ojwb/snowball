@@ -1298,6 +1298,8 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
             case c_try:
             case c_repeat:
                 r = always_set_before_use(p->left, func, v);
+		printf(" *** Handling %s\n", name_of_token(p->type));
+		printf("  r = %d\n", r);
                 if (r == FAIL) return r;
                 /* FIXME: if the first command sets the variable and can't fail
                  * in the process we should return PASS here.
