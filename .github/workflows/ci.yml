@@ -25,9 +25,7 @@ jobs:
       matrix:
         include:
         - name: Python 3.8
-          PYTHON: python3.8
-          container: 'ubuntu:20.04'
-          apt_packages: 'python3.8'
+          PYTHON_VERSION: 3.8
           # The pure Python versions run slowly - when we used travis for CI
           # we used to need to thin the testdata for languages such as Arabic
           # where there's a lot to avoid the build exceeding the maximum time
@@ -38,7 +36,6 @@ jobs:
       fail-fast: false
 
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
-    container: ${{ matrix.container || '' }}
 
     env:
       CC: ${{ matrix.CC || 'gcc' }}
@@ -51,11 +48,6 @@ jobs:
       with:
         show-progress: false
 
-    - name: Install tools in container
-      if: matrix.container
-      run: |
-        apt-get update
-        apt-get install -y git make gcc
     - name: Checkout data
       run: |
         # Try to check out a branch of the same name from the snowball-data
@@ -129,9 +121,13 @@ jobs:
     - name: Test C
       if: matrix.c_tests
       run: $MAKE check CC="$CC"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.PYTHON_VERSION }}
+      if: matrix.PYTHON_VERSION
     - name: Test Python
-      if: matrix.PYTHON
-      run: $MAKE check_python python="${{ matrix.PYTHON }}" THIN_FACTOR="${{ matrix.THIN_FACTOR }}"
+      if: matrix.PYTHON or matrix.PYTHON_VERSION
+      run: $MAKE check_python python="${{ matrix.PYTHON || 'python' }}" THIN_FACTOR="${{ matrix.THIN_FACTOR }}"
     - name: Test Java
       if: matrix.JAVA && matrix.JAVAC
       run: $MAKE check_java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}"
