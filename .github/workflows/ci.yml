@@ -51,11 +51,11 @@ jobs:
       with:
         show-progress: false
 
-    - name: Install git
+    - name: Install tools in container
       if: matrix.container
       run: |
         apt-get update
-        apt-get install -y git
+        apt-get install -y git make gcc
     - name: Checkout data
       run: |
         # Try to check out a branch of the same name from the snowball-data
