@@ -27,7 +27,7 @@ jobs:
         - name: Python 3.8
           PYTHON: python3.8
           container: 'ubuntu:20.04'
-          apt_packages: 'python3.8 git'
+          apt_packages: 'python3.8'
           # The pure Python versions run slowly - when we used travis for CI
           # we used to need to thin the testdata for languages such as Arabic
           # where there's a lot to avoid the build exceeding the maximum time
@@ -51,6 +51,11 @@ jobs:
       with:
         show-progress: false
 
+    - name: Install git
+      if: matrix.container
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git
     - name: Checkout data
       run: |
         # Try to check out a branch of the same name from the snowball-data
