@@ -126,7 +126,7 @@ jobs:
         python-version: ${{ matrix.PYTHON_VERSION }}
       if: matrix.PYTHON_VERSION
     - name: Test Python
-      if: matrix.PYTHON or matrix.PYTHON_VERSION
+      if: matrix.PYTHON || matrix.PYTHON_VERSION
       run: $MAKE check_python python="${{ matrix.PYTHON || 'python' }}" THIN_FACTOR="${{ matrix.THIN_FACTOR }}"
     - name: Test Java
       if: matrix.JAVA && matrix.JAVAC
