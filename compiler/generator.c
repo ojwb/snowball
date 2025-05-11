@@ -1728,9 +1728,6 @@ static void generate_among(struct generator * g, struct node * p) {
 static void generate_booltest(struct generator * g, struct node * p, int inverted) {
     write_comment(g, p);
     g->V[0] = p->name;
-    printf("booltest %s ->right = %p ->right->type %d c_functionend %d failure_label %d x_return %d\n",
-           inverted ? "inverted" : "",
-           p->right, (p->right ? p->right->type : 0), c_functionend, g->failure_label, x_return);
     if (g->failure_label == x_return) {
         if (p->right && p->right->type == c_functionend) {
             // Optimise at end of function.
@@ -1740,7 +1737,6 @@ static void generate_booltest(struct generator * g, struct node * p, int inverte
                 writef(g, "~Mreturn ~V0;~N", p);
             }
             p->right = NULL;
-            printf("*******\n\n");
             return;
         }
     }
