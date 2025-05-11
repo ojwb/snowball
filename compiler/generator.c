@@ -996,6 +996,7 @@ static void generate_do(struct generator * g, struct node * p) {
         g->V[0] = p->left->name;
         writef(g, "~{~Mint ret = ~V0(z);~N", p->left);
         w(g, "~Mif (ret < 0) return ret;~N~}");
+        // FIXME: tail call?
     } else {
         g->failure_label = new_label(g);
         g->label_used = 0;
@@ -1245,6 +1246,7 @@ static void generate_delete(struct generator * g, struct node * p) {
     writef(g, "~{~Mint ret = slice_del(z);~N", p);
     writef(g, "~Mif (ret < 0) return ret;~N"
           "~}", p);
+    // FIXME: tail call?
 }
 
 static void generate_tolimit(struct generator * g, struct node * p) {
@@ -1295,6 +1297,7 @@ static void generate_insert(struct generator * g, struct node * p, int style) {
     writef(g, "~Mint ret = insert_~$(z, z->c, z->c, ~a);~N", p);
     if (keep_c) w(g, "~Mz->c = saved_c;~N");
     writef(g, "~Mif (ret < 0) return ret;~N~}", p);
+    // FIXME: Tail-call if !keep_c and followed by functionend?  Need to make insert_* return 1 instead of 0
 }
 
 static void generate_assignfrom(struct generator * g, struct node * p) {
@@ -1307,12 +1310,15 @@ static void generate_assignfrom(struct generator * g, struct node * p) {
     writef(g, keep_c ? "insert_~$(z, z->c, z->l, ~a);~N" : "insert_~$(z, z->lb, z->c, ~a);~N", p);
     if (keep_c) w(g, "~Mz->c = saved_c;~N");
     writef(g, "~Mif (ret < 0) return ret;~N~}", p);
+    // FIXME: Tail-call if !keep_c and followed by functionend?  Need to make insert_* return 1 instead of 0
 }
 
 static void generate_slicefrom(struct generator * g, struct node * p) {
     write_comment(g, p);
     writef(g, "~{~Mint ret = slice_from_~$(z, ~a);~N", p);
     writef(g, "~Mif (ret < 0) return ret;~N~}", p);
+    // FIXME: Tail-call if followed by functionend?  Need to make slice_from_* return 1 instead of 0
+    // But deprecated so don't bother?
 }
 
 static void generate_setlimit(struct generator * g, struct node * p) {
@@ -1712,6 +1718,18 @@ static void generate_among(struct generator * g, struct node * p) {
 
     if (x->command_count == 1 && x->nocommand_count == 0) {
         /* Only one outcome ("no match" already handled). */
+        if (p->right) {
+            printf("%d %d | %d %d\n", p->right->type, c_functionend,
+                   x->commands[0]->type, c_bra);
+        }
+        if (p->right && p->right->type == c_functionend) {
+            assert(x->commands[0]->type == c_bra);
+            assert(x->commands[0]->right == NULL);
+            struct node * e = x->commands[0]->left;
+            while (e->right) e = e->right;
+            e->right = p->right;
+            p->right = NULL;
+        }
         generate(g, x->commands[0]);
     } else if (x->command_count > 0) {
         writef(g, "~Mswitch (among_var) {~N~+", p);
