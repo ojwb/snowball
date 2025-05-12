@@ -1742,14 +1742,6 @@ static void generate_among(struct generator * g, struct node * p) {
 
     if (x->command_count == 1 && x->nocommand_count == 0) {
         /* Only one outcome ("no match" already handled). */
-        if (p->right && p->right->type == c_functionend) {
-            assert(x->commands[0]->type == c_bra);
-            assert(x->commands[0]->right == NULL);
-            struct node * e = x->commands[0]->left;
-            while (e->right) e = e->right;
-            e->right = p->right;
-            p->right = NULL;
-        }
         generate(g, x->commands[0]);
     } else if (x->command_count > 0) {
         writef(g, "~Mswitch (among_var) {~N~+", p);
