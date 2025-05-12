@@ -1059,7 +1059,8 @@ static void generate_call(struct generator * g, struct node * p) {
     if (g->failure_label == x_return) {
         if (p->right && p->right->type == c_functionend) {
             /* Tail call. */
-            writef(g, "~M~V0 (Z, Result);~N", p);
+            writef(g, "~M~V0 (Z, Result);~N~Mreturn;~N", p);
+            p->right = NULL;
             return;
         }
         if (signals == 0) {
@@ -1155,6 +1156,16 @@ static void generate_define(struct generator * g, struct node * p) {
         }
     }
     g->V[0] = q;
+
+#define FINAL_RETURN "\n      return;\n"
+#define FINAL_RETURN_LEN (sizeof(FINAL_RETURN) - 1)
+    if (memcmp(str_data(g->outbuf) + str_len(g->outbuf) - FINAL_RETURN_LEN,
+               FINAL_RETURN, FINAL_RETURN_LEN) == 0) {
+        // If generate_functionend() has just added a return we remove it again.
+        // This is really only a cosmetic improvement.
+        str_pop_n(g->outbuf, FINAL_RETURN_LEN - 1);
+    }
+
     w(g, "~-~Mend ~W0;~N");
 
     if (g->temporary_used) {
@@ -1178,7 +1189,7 @@ static void generate_define(struct generator * g, struct node * p) {
 
 static void generate_functionend(struct generator * g, struct node * p) {
     (void)p;
-    w(g, "~MResult := True;~N");
+    w(g, "~MResult := True;~N~Mreturn;~N");
 }
 
 static void generate_substring(struct generator * g, struct node * p) {
@@ -1352,10 +1363,26 @@ static void generate_among(struct generator * g, struct node * p) {
     }
 }
 
-static void generate_booltest(struct generator * g, struct node * p) {
+static void generate_booltest(struct generator * g, struct node * p, int inverted) {
     write_comment(g, p);
     g->V[0] = p->name;
-    write_failure_if(g, "not ~V0", p);
+    if (g->failure_label == x_return) {
+        if (p->right && p->right->type == c_functionend) {
+            // Optimise at end of function.
+            if (inverted) {
+                writef(g, "~MResult := !~V0;~N", p);
+            } else {
+                writef(g, "~MResult := ~V0;~N", p);
+            }
+            p->right = NULL;
+            return;
+        }
+    }
+    if (inverted) {
+        write_failure_if(g, "~V0", p);
+    } else {
+        write_failure_if(g, "not ~V0", p);
+    }
 }
 
 static void generate_false(struct generator * g, struct node * p) {
@@ -1438,7 +1465,8 @@ static void generate(struct generator * g, struct node * p) {
         case c_literalstring: generate_literalstring(g, p); break;
         case c_among:         generate_among(g, p); break;
         case c_substring:     generate_substring(g, p); break;
-        case c_booltest:      generate_booltest(g, p); break;
+        case c_booltest:      generate_booltest(g, p, false); break;
+        case c_not_booltest:  generate_booltest(g, p, true); break;
         case c_false:         generate_false(g, p); break;
         case c_true:          break;
         case c_debug:         generate_debug(g, p); break;

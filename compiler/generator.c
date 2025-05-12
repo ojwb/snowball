@@ -532,6 +532,7 @@ static int check_possible_signals(struct generator * g,
         case c_atlimit:
         case c_atmark:
         case c_booltest:
+        case c_not_booltest:
         case c_hop:
         case c_literalstring:
         case c_next:
@@ -671,6 +672,7 @@ static int K_needed_(struct node * p, int call_depth) {
             case c_le:
             case c_sliceto:
             case c_booltest:
+            case c_not_booltest:
             case c_set:
             case c_unset:
             case c_true:
