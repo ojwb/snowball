@@ -728,6 +728,12 @@ static void generate_hop(struct generator * g, struct node * p) {
 
 static void generate_delete(struct generator * g, struct node * p) {
     write_comment(g, p);
+    if (p->right && p->right->type == c_functionend) {
+        writef(g, "~Mreturn env.SliceDel()~N", p);
+        p->right = NULL;
+        g->unreachable = true;
+        return;
+    }
     writef(g, "~Mif !env.SliceDel() {~N"
               "~+~Mreturn false~N~-"
               "~M}~N", p);
@@ -782,26 +788,21 @@ static void generate_address(struct generator * g, struct node * p) {
 }
 
 static void generate_insert(struct generator * g, struct node * p, int style) {
-    int keep_c = style == c_attach;
-
-    write_block_start(g);
     write_comment(g, p);
+    int keep_c = style == c_attach;
     if (p->mode == m_backward) keep_c = !keep_c;
-    if (keep_c) w(g, "~Mvar c = env.Cursor~N");
-    w(g, "~Mbra, ket := env.Cursor, env.Cursor~N");
-    writef(g, "~Menv.Insert(bra, ket, ", p);
+    if (keep_c) w(g, "~{~Mvar c = env.Cursor~N");
+    writef(g, "~Menv.Insert(env.Cursor, env.Cursor, ", p);
     generate_address(g, p);
     writef(g, ");~N", p);
-    if (keep_c) w(g, "~Menv.Cursor = c~N");
-    write_block_end(g);
+    if (keep_c) w(g, "~Menv.Cursor = c~N~}");
 }
 
 static void generate_assignfrom(struct generator * g, struct node * p) {
+    write_comment(g, p);
     int keep_c = p->mode == m_forward; /* like 'attach' */
 
-    write_block_start(g);
-    write_comment(g, p);
-    if (keep_c) writef(g, "~Mvar c = env.Cursor~N", p);
+    if (keep_c) writef(g, "~{~Mvar c = env.Cursor~N", p);
     if (p->mode == m_forward) {
         writef(g, "~Menv.Insert(env.Cursor, env.Limit, ", p);
     } else {
@@ -809,12 +810,19 @@ static void generate_assignfrom(struct generator * g, struct node * p) {
     }
     generate_address(g, p);
     writef(g, ")~N", p);
-    if (keep_c) w(g, "~Menv.Cursor = c~N");
-    write_block_end(g);
+    if (keep_c) w(g, "~Menv.Cursor = c~N~}");
 }
 
 static void generate_slicefrom(struct generator * g, struct node * p) {
     write_comment(g, p);
+    if (p->right && p->right->type == c_functionend) {
+        w(g, "~Mreturn env.SliceFrom(");
+        generate_address(g, p);
+        writef(g, ")~N", p);
+        p->right = NULL;
+        g->unreachable = true;
+        return;
+    }
     w(g, "~Mif !env.SliceFrom(");
     generate_address(g, p);
     writef(g, ") {~N"

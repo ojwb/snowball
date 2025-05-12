@@ -996,11 +996,6 @@ static void generate_do(struct generator * g, struct node * p) {
         /* Optimise do <call> */
         write_comment(g, p->left);
         g->V[0] = p->left->name;
-        if (!savevar && p->right && p->right->type == c_functionend) {
-            writef(g, "~Mreturn ~V0(z);~N", p->left);
-            p->right = NULL;
-            return;
-        }
         writef(g, "~{~Mint ret = ~V0(z);~N", p->left);
         w(g, "~Mif (ret < 0) return ret;~N~}");
     } else {

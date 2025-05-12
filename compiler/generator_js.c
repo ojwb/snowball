@@ -747,6 +747,12 @@ static void generate_hop(struct generator * g, struct node * p) {
 
 static void generate_delete(struct generator * g, struct node * p) {
     write_comment(g, p);
+    if (p->right && p->right->type == c_functionend) {
+        writef(g, "~Mreturn base.slice_del();~N", p);
+        p->right = NULL;
+        g->unreachable = true;
+        return;
+    }
     writef(g, "~Mif (!base.slice_del())~N"
               "~M{~N"
               "~+~Mreturn false;~N~-"
@@ -858,6 +864,14 @@ static void generate_assignfrom(struct generator * g, struct node * p) {
 
 static void generate_slicefrom(struct generator * g, struct node * p) {
     write_comment(g, p);
+    if (p->right && p->right->type == c_functionend) {
+        w(g, "~Mreturn base.slice_from(");
+        generate_address(g, p);
+        w(g, ");~N");
+        p->right = NULL;
+        g->unreachable = true;
+        return;
+    }
     w(g, "~Mif (!base.slice_from(");
     generate_address(g, p);
     writef(g, "))~N"

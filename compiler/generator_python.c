@@ -811,6 +811,7 @@ static void generate_assignfrom(struct generator * g, struct node * p) {
     if (keep_c) w(g, "~Mself.cursor = c~N");
 }
 
+// FIXME: throw execption for slice_from failure, etc...
 static void generate_slicefrom(struct generator * g, struct node * p) {
     write_comment(g, p);
     w(g, "~Mif not self.slice_from(");
