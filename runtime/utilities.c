@@ -373,7 +373,7 @@ static symbol * increase_size(symbol * p, int n) {
 
 /* to replace symbols between c_bra and c_ket in z->p by the
    s_size symbols at s.
-   Returns 0 on success, -1 on error.
+   Returns 1 on success, -1 on error.
    Also, frees z->p (and sets it to NULL) on error.
 */
 extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s, int * adjptr)
@@ -404,7 +404,7 @@ extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const 
     if (s_size) memmove(z->p + c_bra, s, s_size * sizeof(symbol));
     if (adjptr != NULL)
         *adjptr = adjustment;
-    return 0;
+    return 1;
 }
 
 static int slice_check(struct SN_env * z) {
@@ -439,11 +439,11 @@ extern int slice_del(struct SN_env * z) {
 
 extern int insert_s(struct SN_env * z, int bra, int ket, int s_size, const symbol * s) {
     int adjustment;
-    if (replace_s(z, bra, ket, s_size, s, &adjustment))
+    if (replace_s(z, bra, ket, s_size, s, &adjustment) < 0)
         return -1;
     if (bra <= z->bra) z->bra += adjustment;
     if (bra <= z->ket) z->ket += adjustment;
-    return 0;
+    return 1;
 }
 
 extern int insert_v(struct SN_env * z, int bra, int ket, const symbol * p) {
