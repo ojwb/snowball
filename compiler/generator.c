@@ -1327,6 +1327,7 @@ static void generate_assignfrom(struct generator * g, struct node * p) {
     w(g, "~Mint ret = ");
     writef(g, keep_c ? "insert_~$(z, z->c, z->l, ~a);~N" : "insert_~$(z, z->lb, z->c, ~a);~N", p);
     if (keep_c) w(g, "~Mz->c = saved_c;~N");
+    writef(g, "~Mif (ret < 0) return ret;~N~}", p);
 }
 
 static void generate_slicefrom(struct generator * g, struct node * p) {
