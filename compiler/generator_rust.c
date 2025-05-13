@@ -216,23 +216,14 @@ static void writef(struct generator * g, const char * input, struct node * p) {
                 continue;
             }
             case 'V':
-            case 'W': {
-                int j = input[i++] - '0';
-                if (j < 0 || j > (int)(sizeof(g->V) / sizeof(g->V[0])))
-                    goto invalid_escape2;
-                if (ch == 'V')
-                    write_varref(g, g->V[j]);
-                else
-                    write_varname(g, g->V[j]);
+                write_varref(g, p->name);
                 continue;
-            }
-            case 'L': {
-                int j = input[i++] - '0';
-                if (j < 0 || j > (int)(sizeof(g->L) / sizeof(g->L[0])))
-                    goto invalid_escape2;
-                write_literal_string(g, g->L[j]);
+            case 'W':
+                write_varname(g, p->name);
                 continue;
-            }
+            case 'L':
+                write_literal_string(g, p->literalstring);
+                continue;
             case '+': g->margin++; continue;
             case '-': g->margin--; continue;
             case 'n': write_string(g, g->options->name); continue;
@@ -281,12 +272,10 @@ static void generate_AE(struct generator * g, struct node * p) {
         case c_limit:
             w(g, p->mode == m_forward ? "env.limit" : "env.limit_backward"); break;
         case c_lenof:
-            g->V[0] = p->name;
-            w(g, "(~V0.chars().count() as i32)");
+            writef(g, "(~V.chars().count() as i32)", p);
             break;
         case c_sizeof:
-            g->V[0] = p->name;
-            w(g, "(~V0.len() as i32)");
+            writef(g, "(~V.len() as i32)", p);
             break;
         case c_len:
             w(g, "(env.current.chars().count() as i32)");
@@ -459,14 +448,12 @@ static void generate_try(struct generator * g, struct node * p) {
 
 static void generate_set(struct generator * g, struct node * p) {
     write_comment(g, p);
-    g->V[0] = p->name;
-    writef(g, "~M~V0 = true;~N", p);
+    writef(g, "~M~V = true;~N", p);
 }
 
 static void generate_unset(struct generator * g, struct node * p) {
     write_comment(g, p);
-    g->V[0] = p->name;
-    writef(g, "~M~V0 = false;~N", p);
+    writef(g, "~M~V = false;~N", p);
 }
 
 static void generate_fail(struct generator * g, struct node * p) {
@@ -511,8 +498,7 @@ static void generate_do(struct generator * g, struct node * p) {
     if (p->left->type == c_call) {
         /* Optimise do <call> */
         write_comment(g, p->left);
-        g->V[0] = p->left->name;
-        w(g, "~M~W0(env, context);~N");
+        writef(g, "~M~W(env, context);~N", p->left);
     } else {
         int label = new_label(g);
         g->failure_label = label;
@@ -542,10 +528,9 @@ static void generate_GO_grouping(struct generator * g, struct node * p, int is_g
     struct grouping * q = p->name->grouping;
     g->S[0] = p->mode == m_forward ? "" : "_b";
     g->S[1] = complement ? "in" : "out";
-    g->V[0] = p->name;
     g->I[0] = q->smallest_ch;
     g->I[1] = q->largest_ch;
-    write_failure_if(g, "!env.go_~S1_grouping~S0(~W0, ~I0, ~I1)", p);
+    write_failure_if(g, "!env.go_~S1_grouping~S0(~W, ~I0, ~I1)", p);
     if (!is_goto) {
         write_string(g, p->mode == m_forward ? "env.next_char();" : "env.previous_char();");
     }
@@ -683,8 +668,7 @@ static void generate_atleast(struct generator * g, struct node * p) {
 
 static void generate_setmark(struct generator * g, struct node * p) {
     write_comment(g, p);
-    g->V[0] = p->name;
-    writef(g, "~M~V0 = env.cursor;~N", p);
+    writef(g, "~M~V = env.cursor;~N", p);
 }
 
 static void generate_tomark(struct generator * g, struct node * p) {
@@ -759,15 +743,13 @@ static void generate_rightslice(struct generator * g, struct node * p) {
 
 static void generate_assignto(struct generator * g, struct node * p) {
     write_comment(g, p);
-    g->V[0] = p->name;
-    writef(g, "~M~V0 = env.assign_to();~N", p);
+    writef(g, "~M~V = env.assign_to();~N", p);
 }
 
 static void generate_sliceto(struct generator * g, struct node * p) {
     write_comment(g, p);
-    g->V[0] = p->name;
-    writef(g, "~M~V0 = env.slice_to();~N"
-              "~Mif ~V0.is_empty() {~N"
+    writef(g, "~M~V = env.slice_to();~N"
+              "~Mif ~V.is_empty() {~N"
               "~+~Mreturn false;~N~-~M}~N", p);
 }
 
@@ -913,18 +895,16 @@ static void generate_dollar(struct generator * g, struct node * p) {
     write_comment(g, p);
 
     struct str * savevar = vars_newname(g);
-    g->V[0] = p->name;
     g->B[0] = str_data(savevar);
     writef(g, "~Mlet ~B0 = env.clone();~N"
-              "~Menv.set_current_s(~V0.clone());~N"
+              "~Menv.set_current_s(~V.clone());~N"
               "~Menv.cursor = 0;~N"
               "~Menv.limit = env.current.len() as i32;~N", p);
     generate(g, p->left);
     if (!g->unreachable) {
-        g->V[0] = p->name;
         g->B[0] = str_data(savevar);
         /* Update string variable. */
-        w(g, "~M~V0 = env.current.clone().into_owned();~N");
+        writef(g, "~M~V = env.current.clone().into_owned();~N", p);
         /* Reset env */
         w(g, "~M*env = ~B0;~N");
     }
@@ -933,9 +913,8 @@ static void generate_dollar(struct generator * g, struct node * p) {
 
 static void generate_integer_assign(struct generator * g, struct node * p, const char * s) {
     write_comment(g, p);
-    g->V[0] = p->name;
     g->S[0] = s;
-    w(g, "~M~V0 ~S0 "); generate_AE(g, p->AE); w(g, ";~N");
+    writef(g, "~M~V ~S0 ", p); generate_AE(g, p->AE); w(g, ";~N");
 }
 
 static void generate_integer_test(struct generator * g, struct node * p) {
@@ -967,11 +946,10 @@ static void generate_integer_test(struct generator * g, struct node * p) {
 static void generate_call(struct generator * g, struct node * p) {
     int signals = check_possible_signals_list(g, p->name->definition, c_define, 0);
     write_comment(g, p);
-    g->V[0] = p->name;
     if (g->failure_label == x_return &&
         (signals == 0 || (p->right && p->right->type == c_functionend))) {
         /* Always fails or tail call. */
-        writef(g, "~Mreturn ~W0(env, context);~N", p);
+        writef(g, "~Mreturn ~W(env, context);~N", p);
         if (p->right && p->right->type == c_functionend) {
             p->right = NULL;
         }
@@ -980,13 +958,13 @@ static void generate_call(struct generator * g, struct node * p) {
     }
     if (signals == 1) {
         /* Always succeeds. */
-        writef(g, "~M~W0(env, context);~N", p);
+        writef(g, "~M~W(env, context);~N", p);
     } else if (signals == 0) {
         /* Always fails. */
-        writef(g, "~M~W0(env, context);~N", p);
+        writef(g, "~M~W(env, context);~N", p);
         write_failure(g);
     } else {
-        write_failure_if(g, "!~W0(env, context)", p);
+        write_failure_if(g, "!~W(env, context)", p);
     }
 }
 
@@ -996,40 +974,41 @@ static void generate_grouping(struct generator * g, struct node * p, int complem
     struct grouping * q = p->name->grouping;
     g->S[0] = p->mode == m_forward ? "" : "_b";
     g->S[1] = complement ? "out" : "in";
-    g->V[0] = p->name;
     g->I[0] = q->smallest_ch;
     g->I[1] = q->largest_ch;
-    write_failure_if(g, "!env.~S1_grouping~S0(~W0, ~I0, ~I1)", p);
+    write_failure_if(g, "!env.~S1_grouping~S0(~W, ~I0, ~I1)", p);
 }
 
 static void generate_namedstring(struct generator * g, struct node * p) {
     write_comment(g, p);
     g->S[0] = p->mode == m_forward ? "" : "_b";
-    g->V[0] = p->name;
-    write_failure_if(g, "!env.eq_s~S0(&~V0)", p);
+    write_failure_if(g, "!env.eq_s~S0(&~V)", p);
 }
 
 static void generate_literalstring(struct generator * g, struct node * p) {
-    symbol * b = p->literalstring;
     write_comment(g, p);
     g->S[0] = p->mode == m_forward ? "" : "_b";
-    g->L[0] = b;
-    write_failure_if(g, "!env.eq_s~S0(&~L0)", p);
+    write_failure_if(g, "!env.eq_s~S0(&~L)", p);
 }
 
 static void generate_setup_context(struct generator * g) {
     w(g, "~Mlet mut context = &mut Context {~+~N");
     for (struct name * q = g->analyser->names; q; q = q->next) {
-        g->V[0] = q;
         switch (q->type) {
             case t_string:
-                w(g, "~M~W0: String::new(),~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": String::new(),~N");
                 break;
             case t_integer:
-                w(g, "~M~W0: 0,~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": 0,~N");
                 break;
             case t_boolean:
-                w(g, "~M~W0: false,~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": false,~N");
                 break;
         }
     }
@@ -1043,11 +1022,10 @@ static void generate_define(struct generator * g, struct node * p) {
     write_newline(g);
     write_comment(g, p);
 
-    g->V[0] = q;
     if (q->type == t_routine) {
-        w(g, "~Mfn ~W0(env: &mut SnowballEnv, context: &mut Context) -> bool {~+~N");
+        writef(g, "~Mfn ~W(env: &mut SnowballEnv, context: &mut Context) -> bool {~+~N", p);
     } else {
-        w(g, "~Mpub fn ~W0(env: &mut SnowballEnv) -> bool {~+~N");
+        writef(g, "~Mpub fn ~W(env: &mut SnowballEnv) -> bool {~+~N", p);
         generate_setup_context(g);
     }
     if (p->amongvar_needed) w(g, "~Mlet mut among_var;~N");
@@ -1243,14 +1221,13 @@ static void generate_among(struct generator * g, struct node * p) {
 
 static void generate_booltest(struct generator * g, struct node * p, int inverted) {
     write_comment(g, p);
-    g->V[0] = p->name;
     if (g->failure_label == x_return) {
         if (p->right && p->right->type == c_functionend) {
             // Optimise at end of function.
             if (inverted) {
-                writef(g, "~Mreturn !~V0;~N", p);
+                writef(g, "~Mreturn !~V;~N", p);
             } else {
-                writef(g, "~Mreturn ~V0;~N", p);
+                writef(g, "~Mreturn ~V;~N", p);
             }
             p->right = NULL;
             g->unreachable = true;
@@ -1258,9 +1235,9 @@ static void generate_booltest(struct generator * g, struct node * p, int inverte
         }
     }
     if (inverted) {
-        write_failure_if(g, "~V0", p);
+        write_failure_if(g, "~V", p);
     } else {
-        write_failure_if(g, "!~V0", p);
+        write_failure_if(g, "!~V", p);
     }
 }
 
@@ -1390,16 +1367,17 @@ static void generate_among_table(struct generator * g, struct among * x) {
     for (int i = 0; i < x->literalstring_count; i++) {
         g->I[0] = v[i].i;
         g->I[1] = v[i].result;
-        g->L[0] = v[i].b;
         g->S[0] = ",";
 
-        w(g, "~MAmong(~L0, ~I0, ~I1, ");
+        w(g, "~MAmong(");
+        write_literal_string(g, v[i].b);
+        w(g, ", ~I0, ~I1, ");
         if (v[i].function != NULL) {
             w(g, "Some(&");
             write_varname(g, v[i].function);
             w(g, ")");
         } else {
-          w(g, "None");
+            w(g, "None");
         }
         w(g, ")~S0~N");
     }
@@ -1424,9 +1402,10 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 
     for (int i = 0; i < SIZE(b); i++) set_bit(map, b[i] - q->smallest_ch);
 
-    g->V[0] = q->name;
     g->I[0] = size;
-    w(g, "~Mstatic ~W0: &'static [u8; ~I0] = &[");
+    w(g, "~Mstatic ");
+    write_varname(g, q->name);
+    w(g, ": &'static [u8; ~I0] = &[");
     for (int i = 0; i < size; i++) {
         write_int(g, map[i]);
         if (i < size - 1) w(g, ", ");
@@ -1447,16 +1426,21 @@ static void generate_members(struct generator * g) {
     w(g, "#[derive(Clone)]~N");
     w(g, "struct Context {~+~N");
     for (struct name * q = g->analyser->names; q; q = q->next) {
-        g->V[0] = q;
         switch (q->type) {
             case t_string:
-                w(g, "~M~W0: String,~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": String,~N");
                 break;
             case t_integer:
-                w(g, "~M~W0: i32,~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": i32,~N");
                 break;
             case t_boolean:
-                w(g, "~M~W0: bool,~N");
+                write_margin(g);
+                write_varname(g, q);
+                w(g, ": bool,~N");
                 break;
         }
     }
