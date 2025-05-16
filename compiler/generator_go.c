@@ -301,7 +301,7 @@ static void generate_bra(struct generator * g, struct node * p) {
 
 static void generate_and(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -324,7 +324,7 @@ static void generate_and(struct generator * g, struct node * p) {
 
 static void generate_or(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -389,7 +389,7 @@ static void generate_backwards(struct generator * g, struct node * p) {
 
 static void generate_not(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -427,7 +427,7 @@ static void generate_not(struct generator * g, struct node * p) {
 
 static void generate_try(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -470,7 +470,7 @@ static void generate_fail(struct generator * g, struct node * p) {
 
 static void generate_test(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -492,7 +492,7 @@ static void generate_test(struct generator * g, struct node * p) {
 
 static void generate_do(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 

@@ -1670,10 +1670,71 @@ static void remove_unreachable_routine(struct analyser * a, struct name * q) {
     }
 }
 
+// Returns:
+// 0 Never modifies cursor.
+// 1 Cursor not modified on f.
+// 2 Cursor not modified on t.
+// 3 Cursor potentially modified on f or t.
+static int check_cursor_modified(struct node * p) {
+    // This could be elaborated almost indefinitely.  Effort has been mostly
+    // directed to cases which actually improve code generation for algorithms
+    // we ship.
+    int res = 0;
+    switch (p->type) {
+        case c_atlimit:
+        case c_do:
+        case c_dollar:
+        case c_leftslice:
+        case c_rightslice:
+        case c_mathassign:
+        case c_plusassign:
+        case c_minusassign:
+        case c_multiplyassign:
+        case c_divideassign:
+        case c_eq:
+        case c_ne:
+        case c_gt:
+        case c_ge:
+        case c_lt:
+        case c_le:
+        case c_sliceto:
+        case c_booltest:
+        case c_not_booltest:
+        case c_set:
+        case c_unset:
+        case c_true:
+        case c_false:
+        case c_debug:
+        case c_functionend:
+        case c_not:
+            break;
+
+        case c_call:
+            // If the call recurses back into the current routine then this
+            // will still be 3.
+            res |= p->name->definition->cursor_modified;
+            break;
+
+        case c_bra:
+            if (p->left) res |= p->left->cursor_modified;
+            break;
+
+        default:
+            return 3;
+    }
+
+    if (p->right) res |= p->right->cursor_modified;
+
+    return res;
+}
+
 // Return 0 for always f.
 // Return 1 for always t.
 // Return -1 for don't know (or can raise t or f).
 static int check_possible_signals(struct analyser * a, struct node * p) {
+    // This could be elaborated almost indefinitely.  Effort has been mostly
+    // directed to cases which actually improve code generation for algorithms
+    // we ship.
     switch (p->type) {
         case c_fail:
         case c_false:
@@ -1867,39 +1928,39 @@ static int check_possible_signals(struct analyser * a, struct node * p) {
 static void visit_routine(struct analyser * a, struct name * n);
 
 static void visit_node(struct analyser * a, struct node * p) {
-    while (p) {
-        if (p->name) {
-            if (p->type == c_call) {
-                visit_routine(a, p->name);
-            } else {
-                // Mark as reachable.
-                p->name->count = -2;
-            }
-        } else if (p->type == c_among) {
-            struct among * x = p->among;
-            x->used = true;
-            for (int i = 0; i < x->literalstring_count; ++i) {
-                if (x->b[i].function)
-                    visit_routine(a, x->b[i].function);
-            }
-            for (int i = 0; i < x->command_count; ++i) {
-                visit_node(a, x->commands[i]);
-            }
+    if (p->name) {
+        if (p->type == c_call) {
+            visit_routine(a, p->name);
+        } else {
+            // Mark as reachable.
+            p->name->count = -2;
         }
-        if (p->left) {
-            visit_node(a, p->left);
+    } else if (p->type == c_among) {
+        struct among * x = p->among;
+        x->used = true;
+        for (int i = 0; i < x->literalstring_count; ++i) {
+            if (x->b[i].function)
+                visit_routine(a, x->b[i].function);
         }
-        if (p->aux) {
-            visit_node(a, p->aux);
+        for (int i = 0; i < x->command_count; ++i) {
+            visit_node(a, x->commands[i]);
         }
-        if (p->AE) {
-            visit_node(a, p->AE);
-        }
-
-        p->possible_signals = check_possible_signals(a, p);
-
-        p = p->right;
     }
+    if (p->left) {
+        visit_node(a, p->left);
+    }
+    if (p->aux) {
+        visit_node(a, p->aux);
+    }
+    if (p->AE) {
+        visit_node(a, p->AE);
+    }
+    if (p->right) {
+        visit_node(a, p->right);
+    }
+
+    p->possible_signals = check_possible_signals(a, p);
+    p->cursor_modified = check_cursor_modified(p);
 }
 
 static void visit_routine(struct analyser * a, struct name * n) {
@@ -1920,6 +1981,7 @@ static void visit_routine(struct analyser * a, struct name * n) {
     // will get overwritten by visit_node() for non-recursive cases.
 
     p->possible_signals = -1; // Assume it could signal t or f.
+    p->cursor_modified = 3; // Assume cursor could be modified or t or f.
 
     visit_node(a, p);
 }

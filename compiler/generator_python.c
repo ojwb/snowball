@@ -322,7 +322,7 @@ static void generate_bra(struct generator * g, struct node * p) {
 
 static void generate_and(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
 
     write_comment(g, p);
 
@@ -340,7 +340,7 @@ static void generate_and(struct generator * g, struct node * p) {
 
 static void generate_or(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
 
     int a0 = g->failure_label;
     struct str * a1 = str_copy(g->failure_str);
@@ -400,7 +400,7 @@ static void generate_backwards(struct generator * g, struct node * p) {
 
 static void generate_not(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
 
     int a0 = g->failure_label;
     struct str * a1 = str_copy(g->failure_str);
@@ -433,7 +433,7 @@ static void generate_not(struct generator * g, struct node * p) {
 
 static void generate_try(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
     int label = new_label(g);
     g->failure_label = label;
     str_clear(g->failure_str);
@@ -472,7 +472,7 @@ static void generate_fail(struct generator * g, struct node * p) {
 
 static void generate_test(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
 
     write_comment(g, p);
 
@@ -492,7 +492,7 @@ static void generate_test(struct generator * g, struct node * p) {
 
 static void generate_do(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
-    int keep_c = K_needed(g, p->left);
+    int keep_c = p->left->cursor_modified;
     write_comment(g, p);
     if (keep_c) write_savecursor(g, p, savevar);
 

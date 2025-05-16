@@ -423,70 +423,6 @@ static void generate_AE(struct generator * g, struct node * p) {
     }
 }
 
-/* K_needed() tests to see if we really need to keep c. Not true when the
-   command does not touch the cursor. This and repeat_score() could be
-   elaborated almost indefinitely.
-*/
-
-static int K_needed_(struct node * p, int call_depth) {
-    while (p) {
-        switch (p->type) {
-            case c_atlimit:
-            case c_do:
-            case c_dollar:
-            case c_leftslice:
-            case c_rightslice:
-            case c_mathassign:
-            case c_plusassign:
-            case c_minusassign:
-            case c_multiplyassign:
-            case c_divideassign:
-            case c_eq:
-            case c_ne:
-            case c_gt:
-            case c_ge:
-            case c_lt:
-            case c_le:
-            case c_sliceto:
-            case c_booltest:
-            case c_not_booltest:
-            case c_set:
-            case c_unset:
-            case c_true:
-            case c_false:
-            case c_debug:
-            case c_functionend:
-            case c_not:
-                break;
-
-            case c_call:
-                /* Recursive functions aren't typical in snowball programs, so
-                 * make the pessimistic assumption that keep is needed if we
-                 * hit a generous limit on recursion.  It's not likely to make
-                 * a difference to any real world program, but means we won't
-                 * recurse until we run out of stack for pathological cases.
-                 */
-                if (call_depth >= 100) return true;
-                if (K_needed_(p->name->definition, call_depth + 1))
-                    return true;
-                break;
-
-            case c_bra:
-                if (K_needed_(p->left, call_depth)) return true;
-                break;
-
-            default: return true;
-        }
-        p = p->right;
-    }
-    return false;
-}
-
-extern int K_needed(struct generator * g, struct node * p) {
-    (void)g;
-    return K_needed_(p, 0);
-}
-
 static int repeat_score(struct generator * g, struct node * p, int call_depth) {
     int score = 0;
     while (p) {
@@ -581,7 +517,7 @@ static void generate_bra(struct generator * g, struct node * p) {
 
 static void generate_and(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -607,7 +543,7 @@ static void generate_and(struct generator * g, struct node * p) {
 
 static void generate_or(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -661,7 +597,7 @@ static void generate_backwards(struct generator * g, struct node * p) {
 
 static void generate_not(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -702,7 +638,7 @@ static void generate_not(struct generator * g, struct node * p) {
 
 static void generate_try(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -748,7 +684,7 @@ static void generate_fail(struct generator * g, struct node * p) {
 
 static void generate_test(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
 
@@ -770,7 +706,7 @@ static void generate_test(struct generator * g, struct node * p) {
 
 static void generate_do(struct generator * g, struct node * p) {
     struct str * savevar = NULL;
-    if (K_needed(g, p->left)) {
+    if (p->left->cursor_modified) {
         savevar = vars_newname(g);
     }
     if (savevar) {

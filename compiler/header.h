@@ -274,10 +274,15 @@ struct node {
     // Unicode mode (e.g. maxint, sizeof '{U+0246}') - some warnings which
     // depend on a constant AEs value should only fire for the first set.
     byte fixed_constant;
-    // Return 0 for always f.
-    // Return 1 for always t.
-    // Return -1 for don't know (or can raise t or f).
+    // 0 for always f.
+    // 1 for always t.
+    // -1 for don't know (or can raise t or f).
     signed char possible_signals;
+    // 0 Never modifies cursor.
+    // 1 Cursor not modified on f.
+    // 2 Cursor not modified on t.
+    // 3 Cursor potentially modified on t or f.
+    byte cursor_modified;
     struct node * AE;
     struct name * name;
     symbol * literalstring;
@@ -425,7 +430,6 @@ extern void write_start_comment(struct generator * g,
                                 const char * comment_start,
                                 const char * comment_end);
 
-extern int K_needed(struct generator * g, struct node * p);
 extern int repeat_restore(struct generator * g, struct node * p);
 
 /* Generator for C code. */
