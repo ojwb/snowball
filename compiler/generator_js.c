@@ -541,12 +541,9 @@ static void generate_next(struct generator * g, struct node * p) {
 static void generate_GO_grouping(struct generator * g, struct node * p, int is_goto, int complement) {
     write_comment(g, p);
 
-    struct grouping * q = p->name->grouping;
     g->S[0] = p->mode == m_forward ? "" : "_b";
     g->S[1] = complement ? "in" : "out";
-    g->I[0] = q->smallest_ch;
-    g->I[1] = q->largest_ch;
-    write_failure_if(g, "!base.go_~S1_grouping~S0(~V, ~I0, ~I1)", p);
+    write_failure_if(g, "!base.go_~S1_grouping~S0(~V)", p);
     if (!is_goto) {
         if (p->mode == m_forward)
             w(g, "~Mbase.cursor++;~N");
@@ -1028,12 +1025,9 @@ static void generate_call(struct generator * g, struct node * p) {
 static void generate_grouping(struct generator * g, struct node * p, int complement) {
     write_comment(g, p);
 
-    struct grouping * q = p->name->grouping;
     g->S[0] = p->mode == m_forward ? "" : "_b";
     g->S[1] = complement ? "out" : "in";
-    g->I[0] = q->smallest_ch;
-    g->I[1] = q->largest_ch;
-    write_failure_if(g, "!(base.~S1_grouping~S0(~V, ~I0, ~I1))", p);
+    write_failure_if(g, "!(base.~S1_grouping~S0(~V))", p);
 }
 
 static void generate_namedstring(struct generator * g, struct node * p) {
@@ -1346,28 +1340,38 @@ static void generate_amongs(struct generator * g) {
     }
 }
 
-static void set_bit(symbol * b, int i) { b[i/8] |= 1 << i%8; }
-
 static void generate_grouping_table(struct generator * g, struct grouping * q) {
-    int range = q->largest_ch - q->smallest_ch + 1;
-    int size = (range + 7)/ 8;  /* assume 8 bits per symbol */
     symbol * b = q->b;
-    symbol * map = create_b(size);
 
-    for (int i = 0; i < size; i++) map[i] = 0;
-
-    for (int i = 0; i < SIZE(b); i++) set_bit(map, b[i] - q->smallest_ch);
-
-    w(g, "~M~C /** Array<int> */ ");
-    write_varname(g, q->name);
-    write_string(g, " = [");
-    for (int i = 0; i < size; i++) {
-        write_int(g, map[i]);
-        if (i < size - 1) w(g, ", ");
+    int has_caret = false;
+    int has_dash = false;
+    for (int i = 0; i < SIZE(b); i++) {
+        switch (b[i]) {
+            case '^':
+                has_caret = true;
+                break;
+            case '-':
+                has_dash = true;
+                break;
+        }
     }
-    w(g, "];~N~N");
-
-    lose_b(map);
+    w(g, "~M~C /* Regexp */ ");
+    write_varname(g, q->name);
+    write_string(g, " = /^[");
+    for (int i = 0; i < SIZE(b); i++) {
+        switch (b[i]) {
+            case '^':
+            case '-':
+                continue;
+            case '\\':
+            case ']':
+                write_char(g, '\\');
+        }
+        write_char(g, b[i]);
+    }
+    if (has_caret) write_char(g, '^');
+    if (has_dash) write_char(g, '-');
+    w(g, "]/;~N~N");
 }
 
 static void generate_groupings(struct generator * g) {
