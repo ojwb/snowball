@@ -693,6 +693,7 @@ check_js_%: $(STEMMING_DATA)/%
 	fi
 	@rm tmp.txt
 
+	rm -f package.json
 	@echo "Checking output of $* stemmer for JS (ESM)"
 	@if test -f '$</voc.txt.gz' ; then \
 	  gzip -dc '$</voc.txt.gz' > tmp.in; \
