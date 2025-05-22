@@ -24,46 +24,47 @@ else
     var language = 'English';
     var show_help = false;
     let use_esm = false;
-    while (process.argv.length > 0)
+    let argv = process.argv.slice(0);
+    while (argv.length > 0)
     {
-        var arg = process.argv.shift();
+        var arg = argv.shift();
         switch (arg)
         {
         case "-h":
             show_help = true;
-            process.argv.length = 0;
+            argv.length = 0;
             break;
         case "-l":
-            if (process.argv.length === 0)
+            if (argv.length === 0)
             {
                 show_help = true;
                 break;
             }
-            language = process.argv.shift();
+            language = argv.shift();
             break;
         case "-i":
-            if (process.argv.length === 0)
+            if (argv.length === 0)
             {
                 show_help = true;
                 break;
             }
-            input = process.argv.shift();
+            input = argv.shift();
             break;
         case "-o":
-            if (process.argv.length === 0)
+            if (argv.length === 0)
             {
                 show_help = true;
                 break;
             }
-            output = process.argv.shift();
+            output = argv.shift();
             break;
         case "-c":
-            if (process.argv.length === 0)
+            if (argv.length === 0)
             {
                 show_help = true;
                 break;
             }
-            encoding = process.argv.shift();
+            encoding = argv.shift();
             break;
         case "--esm":
             use_esm = true;
