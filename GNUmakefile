@@ -678,22 +678,6 @@ do_check_js: $(libstemmer_algorithms:%=check_js_%)
 
 check_js_%: export NODE_PATH=$(js_output_dir)
 check_js_%: $(STEMMING_DATA)/%
-	@echo "Checking output of $* stemmer for JS"
-	@echo '{"type": "commonjs"}' > package.json
-	@if test -f '$</voc.txt.gz' ; then \
-	  gzip -dc '$</voc.txt.gz' > tmp.in; \
-	  $(JSRUN) javascript/stemwords.js -l $* -i tmp.in -o tmp.txt; \
-	  rm tmp.in; \
-	else \
-	  $(JSRUN) javascript/stemwords.js -l $* -i $</voc.txt -o tmp.txt; \
-	fi
-	@if test -f '$</output.txt.gz' ; then \
-	  gzip -dc '$</output.txt.gz'|$(DIFF) -u - tmp.txt; \
-	else \
-	  $(DIFF) -u $</output.txt tmp.txt; \
-	fi
-	@rm tmp.txt
-	@
 	@echo "Checking output of $* stemmer for JS (ESM)"
 	@echo '{"type": "module"}' > package.json
 	@if test -f '$</voc.txt.gz' ; then \
@@ -702,6 +686,22 @@ check_js_%: $(STEMMING_DATA)/%
 	  rm tmp.in; \
 	else \
 	  $(JSRUN) javascript/stemwords.js --esm -l $* -i $</voc.txt -o tmp.txt; \
+	fi
+	@if test -f '$</output.txt.gz' ; then \
+	  gzip -dc '$</output.txt.gz'|$(DIFF) -u - tmp.txt; \
+	else \
+	  $(DIFF) -u $</output.txt tmp.txt; \
+	fi
+	@rm tmp.txt
+	@
+	@echo "Checking output of $* stemmer for JS"
+	@echo '{"type": "commonjs"}' > package.json
+	@if test -f '$</voc.txt.gz' ; then \
+	  gzip -dc '$</voc.txt.gz' > tmp.in; \
+	  $(JSRUN) javascript/stemwords.js -l $* -i tmp.in -o tmp.txt; \
+	  rm tmp.in; \
+	else \
+	  $(JSRUN) javascript/stemwords.js -l $* -i $</voc.txt -o tmp.txt; \
 	fi
 	@if test -f '$</output.txt.gz' ; then \
 	  gzip -dc '$</output.txt.gz'|$(DIFF) -u - tmp.txt; \
