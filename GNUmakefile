@@ -678,6 +678,7 @@ do_check_js: $(libstemmer_algorithms:%=check_js_%)
 
 check_js_%: export NODE_PATH=$(js_output_dir)
 check_js_%: $(STEMMING_DATA)/%
+	@git checkout -q package.json
 	@echo "Checking output of $* stemmer for JS"
 	@if test -f '$</voc.txt.gz' ; then \
 	  gzip -dc '$</voc.txt.gz' > tmp.in; \
@@ -693,7 +694,7 @@ check_js_%: $(STEMMING_DATA)/%
 	fi
 	@rm tmp.txt
 
-	rm -f package.json
+	@rm -f package.json
 	@echo "Checking output of $* stemmer for JS (ESM)"
 	@if test -f '$</voc.txt.gz' ; then \
 	  gzip -dc '$</voc.txt.gz' > tmp.in; \
