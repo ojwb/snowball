@@ -88,12 +88,16 @@ jobs:
         - name: Windows (C)
           os: windows-latest
           c_tests: y
+          mingw64_packages: 'mingw-w64-ucrt-x86_64-make'
+          ccache: sccache
+        - name: Windows (C) old
+          os: windows-latest
+          c_tests: y
           ccache: sccache
         - name: Windows (Go)
           os: windows-latest
           GO: go
-          MAKE: mingw32-make
-          mingw64_packages: 'mingw-w64-ucrt-x86_64-go'
+          mingw64_packages: 'mingw-w64-ucrt-x86_64-go mingw-w64-ucrt-x86_64-make'
           ccache: sccache
 
       fail-fast: false
@@ -170,7 +174,9 @@ jobs:
         msystem: ucrt64
         install: base-devel ${{ matrix.mingw64_packages }}
     - name: Build
-      run: $MAKE CC="${{ matrix.ccache || 'ccache' }} $CC"
+      run: |
+        $MAKE --version
+        $MAKE CC="${{ matrix.ccache || 'ccache' }} $CC"
     - name: Test C dist
       if: matrix.CFLAGS_DIST_BUILD
       run: |
