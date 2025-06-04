@@ -1723,6 +1723,48 @@ static void generate_among_table(struct generator * g, struct among * x) {
 
     struct amongvec * v = x->b;
 
+    // Idea for new approach to among:
+    // consider (in backwards mode):
+    //
+    //  [substring] among (
+    //      'sses' (<-'ss')
+    //      'ied' 'ies'
+    //             ((hop 2 <-'i') or <-'ie')
+    //      's'    (next gopast v delete)
+    //      'us' 'ss'
+    //  )
+
+    // Work in bytes for UTF-8:
+    //
+    // offset_t byte byte        offset_t...
+    // <exact> <min> <range>     <pointer>...
+    // 0       'd'   's'         OFFSET_D 0 0 ... OFFSET_S         // 2+16   = 18
+    // OFFSET_D:
+    //                           offset_t|byte...
+    // 0       2     0           RES_IES | 'i' 'e'                 // 2+1+1  = 4
+    // OFFSET_S:
+    // RES_S   'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
+    // OFFSET_ES:
+    // RES_ES  2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
+    //
+    // Total                                                                   45 * sizeof(short)?
+    //
+    // RES_* are -(x->result) in the current approach with values -1, -2, -3, ...
+    //
+    // OFFSET_* are offsets into this table with values > 0
+    //
+    // FN_* are some range of values which don't collide with these (set a high
+    // bit)?
+    //
+    // Current: 15 bytes for strings + 6 * (sizeof(void*) + sizeof(int) * 4)
+    // ~= 40 * sizeof(int) on x86-64 linux
+    //
+    // But need function and substring_i in there too.  Now substring_i only
+    // needed when there's a function.
+    //
+    // Use e.g. FN_IES for that case then have the dispatch function return the
+    // RES_* or FN_* for the next longest suffix to try?
+#if 1
     g->I[0] = x->number;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size) {
@@ -1733,9 +1775,10 @@ static void generate_among_table(struct generator * g, struct among * x) {
             w(g, ";~N");
         }
     }
+#endif
 
     g->I[1] = x->literalstring_count;
-    w(g, "~Mstatic const struct among a_~I0[~I1] = {~N");
+    w(g, "~Mstatic const symbol among a_~I0[~I1] = {~N");
 
     for (int i = 0; i < x->literalstring_count; i++) {
         g->I[1] = i;

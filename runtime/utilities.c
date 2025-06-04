@@ -235,126 +235,74 @@ extern int eq_v_b(struct SN_env * z, const symbol * p) {
     return eq_s_b(z, SIZE(p), p);
 }
 
-extern int find_among(struct SN_env * z, const struct among * v, int v_size,
+extern int find_among(struct SN_env * z, const unsigned short * v,
                       int (*call_among_func)(struct SN_env*)) {
-
-    int i = 0;
-    int j = v_size;
-
-    int c = z->c; int l = z->l;
-    const symbol * q = z->p + c;
-
-    const struct among * w;
-
-    int common_i = 0;
-    int common_j = 0;
-
-    int first_key_inspected = 0;
-
-    while (1) {
-        int k = i + ((j - i) >> 1);
-        int diff = 0;
-        int common = common_i < common_j ? common_i : common_j; /* smaller */
-        w = v + k;
-        {
-            int i2; for (i2 = common; i2 < w->s_size; i2++) {
-                if (c + common == l) { diff = -1; break; }
-                diff = q[common] - w->s[i2];
-                if (diff != 0) break;
-                common++;
+    int c = z->c;
+    int l = z->l;
+    size_t o = 0;
+    while (true) {
+        if (o < 0) {
+            z->c = c;
+            return -o;
+        }
+        if (c < l) {
+            symbol a = v[o + 1] & 0xff;
+            symbol b = v[o + 1] >> 8;
+            if (b) {
+                // N-way dispatch.
+                symbol ch = z->p[c];
+                if (ch >= a && ch <= b) {
+                    ++c;
+                    o = v[o + (ch - a) + 2];
+                    continue;
+                }
+            } else {
+                // Substring segment.
+                if (z->l - z->c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
+                    c += a;
+                    o = v[o + 2];
+                    continue;
+                }
             }
         }
-        if (diff < 0) {
-            j = k;
-            common_j = common;
-        } else {
-            i = k;
-            common_i = common;
-        }
-        if (j - i <= 1) {
-            if (i > 0) break; /* v->s has been inspected */
-            if (j == i) break; /* only one item in v */
-
-            /* - but now we need to go round once more to get
-               v->s inspected. This looks messy, but is actually
-               the optimal approach.  */
-
-            if (first_key_inspected) break;
-            first_key_inspected = 1;
-        }
-    }
-    w = v + i;
-    while (1) {
-        if (common_i >= w->s_size) {
-            z->c = c + w->s_size;
-            if (!w->function) return w->result;
-            z->af = w->function;
-            if (call_among_func(z)) {
-                z->c = c + w->s_size;
-                return w->result;
-            }
-        }
-        if (!w->substring_i) return 0;
-        w += w->substring_i;
+        o = v[0];
     }
 }
 
 /* find_among_b is for backwards processing. Same comments apply */
-
-extern int find_among_b(struct SN_env * z, const struct among * v, int v_size,
+extern int find_among_b(struct SN_env * z, const unsigned short * v,
                         int (*call_among_func)(struct SN_env*)) {
-
-    int i = 0;
-    int j = v_size;
-
-    int c = z->c; int lb = z->lb;
-    const symbol * q = z->p + c - 1;
-
-    const struct among * w;
-
-    int common_i = 0;
-    int common_j = 0;
-
-    int first_key_inspected = 0;
-
-    while (1) {
-        int k = i + ((j - i) >> 1);
-        int diff = 0;
-        int common = common_i < common_j ? common_i : common_j;
-        w = v + k;
-        {
-            int i2; for (i2 = w->s_size - 1 - common; i2 >= 0; i2--) {
-                if (c - common == lb) { diff = -1; break; }
-                diff = q[- common] - w->s[i2];
-                if (diff != 0) break;
-                common++;
+    int c = z->c;
+    int lb = z->lb;
+    size_t o = 0;
+    while (true) {
+        if (o < 0) {
+            z->c = c;
+            return -o;
+        }
+        if (c > lb) {
+            symbol a = v[o + 1] & 0xff;
+            symbol b = v[o + 1] >> 8;
+            if (b) {
+                // N-way dispatch.
+                symbol ch = z->p[c - 1];
+                if (ch >= a && ch <= b) {
+                    --c;
+                    o = v[o + (ch - a) + 2];
+                    continue;
+                }
+            } else {
+                // Substring segment.
+                if (z->c - z->lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
+                    c -= a;
+                    o = v[o + 2];
+                    continue;
+                }
             }
         }
-        if (diff < 0) { j = k; common_j = common; }
-                 else { i = k; common_i = common; }
-        if (j - i <= 1) {
-            if (i > 0) break;
-            if (j == i) break;
-            if (first_key_inspected) break;
-            first_key_inspected = 1;
-        }
-    }
-    w = v + i;
-    while (1) {
-        if (common_i >= w->s_size) {
-            z->c = c - w->s_size;
-            if (!w->function) return w->result;
-            z->af = w->function;
-            if (call_among_func(z)) {
-                z->c = c - w->s_size;
-                return w->result;
-            }
-        }
-        if (!w->substring_i) return 0;
-        w += w->substring_i;
+        o = v[0];
     }
 }
-
 
 /* Increase the size of the buffer pointed to by p to at least n symbols.
  * If insufficient memory, returns NULL and frees the old buffer.
