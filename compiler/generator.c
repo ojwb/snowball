@@ -1717,6 +1717,50 @@ static void generate_routine_headers(struct generator * g) {
     }
 }
 
+static int generate_among_table_(struct generator * g, struct among * x,
+                                 symbol * prefix) {
+    struct amongvec * v = x->b;
+
+    symbol min = (symbol)-1;
+    symbol max = 0;
+    int has_exact = false;
+    int prefix_len = SIZE(prefix);
+    for (int i = 0; i < x->literalstring_count; i++) {
+        // FIXME backwards version
+        if (v[i].size < prefix_len) continue;
+        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+            continue;
+        if (v[i].size == prefix_len) {
+            has_exact = true;
+            continue;
+        }
+        symbol ch = v[i].b[prefix_len];
+        if (ch < min) min = ch;
+        if (ch > max) max = ch;
+        add_to_b(prefix, &ch, 1);
+        int code = generate_among_table_(g, x, prefix);
+        (void)code;
+        SIZE(prefix) = prefix_len;
+    }
+    if (min == max) {
+        return 0;
+    }
+    if (min > max) {
+        printf("[");
+        for (int i = 0; i < prefix_len; ++i) {
+            putchar(prefix[i]);
+        }
+        printf("]\n");
+        return -1;
+    }
+    printf("min = %c max = %c has_exact = %d : ", min, max, has_exact);
+    for (int i = 0; i < prefix_len; ++i) {
+        putchar(prefix[i]);
+    }
+    printf("\n");
+    return 42; // FIXME code
+}
+
 static void generate_among_table(struct generator * g, struct among * x) {
     write_newline(g);
     write_comment(g, x->node);
@@ -1763,8 +1807,8 @@ static void generate_among_table(struct generator * g, struct among * x) {
     // needed when there's a function.
     //
     // Use e.g. FN_IES for that case then have the dispatch function return the
-    // RES_* or FN_* for the next longest suffix to try?
-#if 1
+    // RES_* or FN_* for the next longest suffix to try? 
+#if 0
     g->I[0] = x->number;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size) {
@@ -1779,6 +1823,12 @@ static void generate_among_table(struct generator * g, struct among * x) {
 
     g->I[1] = x->literalstring_count;
     w(g, "~Mstatic const symbol among a_~I0[~I1] = {~N");
+
+    symbol * b = create_b(4096);
+    if ((x->substring ? x->substring : x->node)->mode == m_forward) {
+        generate_among_table_(g, x, b);
+        printf("\n");
+    }
 
     for (int i = 0; i < x->literalstring_count; i++) {
         g->I[1] = i;
