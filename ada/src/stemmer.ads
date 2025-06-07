@@ -77,7 +77,7 @@ private
       Last        : Among_Index;
       Substring_I : Integer;
       Result      : Integer;
-      Operation   : Operation_Index;
+      Operation   : Operation_Index; -- FIXME rename?
    end record;
 
    type Among_Array_Type is array (Natural range <>) of Among_Type;
@@ -99,7 +99,6 @@ private
                          Pattern : in String;
                          Execute : access procedure
                            (Ctx       : in out Context_Type'Class;
-                            Operation : in Operation_Index;
                             Status    : out Boolean);
                          Result  : out Integer) with
      Global => null,
@@ -110,7 +109,6 @@ private
                                   Pattern : in String;
                                   Execute : access procedure
                                     (Ctx       : in out Context_Type'Class;
-                                     Operation : in Operation_Index;
                                      Status    : out Boolean);
                                   Result  : out Integer) with
      Global => null,
@@ -214,6 +212,7 @@ private
       Bra : Char_Index := 0;
       Ket : Char_Index := 0;
       P   : String (1 .. WORD_MAX_LENGTH);
+      AF  : Operation_Index := 0;
    end record;
 
 end Stemmer;

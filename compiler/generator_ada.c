@@ -230,6 +230,34 @@ static void writef(struct generator * g, const char * input, struct node * p) {
                 write_s(g, g->B[j]);
                 continue;
             }
+            case 'F': { // Among function dispatcher.
+                struct among * x = p->among;
+                if (x->function_count == 0) {
+                    write_string(g, "null");
+                    continue;
+                }
+
+                if (x->function_count == 1) {
+                    // Only one different function used in this among.
+                    struct amongvec * v = x->b;
+                    for (int j = 0; j < x->literalstring_count; j++) {
+                        if (v[j].function) {
+                            write_varref(g, v[j].function);
+                            write_string(g, "'Access");
+                            goto continue_outer_loop;
+                        }
+                    }
+                    fprintf(stderr, "function_count == 1 but no among functions\n");
+                    exit(1);
+continue_outer_loop:
+                    continue;
+                }
+
+                w(g, "Af_");
+                write_int(g, x->number);
+                write_string(g, "'Access");
+                continue;
+            }
             case 'I': {
                 int j = input[i++] - '0';
                 if (j < 0 || j > (int)(sizeof(g->I) / sizeof(g->I[0])))
@@ -1279,10 +1307,8 @@ static void generate_substring(struct generator * g, struct node * p) {
 #endif
     }
 
-    g->S[1] = (x->function_count > 0) ? "Among_Handler'Access" : "null";
-
     if (x->amongvar_needed) {
-        writef(g, "~MFind_Among~S0 (Z, A_~I0, Among_String, ~S1, A);~N", p);
+        writef(g, "~MFind_Among~S0 (Z, A_~I0, Among_String, ~F, A);~N", p);
         if (!x->always_matches) {
             write_failure_if(g, "A = 0", p);
         }
@@ -1306,7 +1332,7 @@ static void generate_substring(struct generator * g, struct node * p) {
         }
     }
 
-    writef(g, "~MFind_Among~S0 (Z, A_~I0, Among_String, ~S1, A);~N", p);
+    writef(g, "~MFind_Among~S0 (Z, A_~I0, Among_String, ~F, A);~N", p);
     if (x->always_matches) {
         // The result in `A` can't be zero.
     } else if (x->command_count == 0 &&
@@ -1479,21 +1505,10 @@ static void generate_method_decl(struct generator * g, struct name * q) {
 }
 
 static void generate_method_decls(struct generator * g, enum name_types type) {
-    struct among * a = g->analyser->amongs;
-    int need_among_handler = 0;
-
     for (struct name * q = g->analyser->names; q; q = q->next) {
         if ((enum name_types)q->type == type) {
             generate_method_decl(g, q);
         }
-    }
-
-    while (a != NULL && need_among_handler == 0) {
-        need_among_handler = (a->function_count > 0);
-        a = a->next;
-    }
-    if (need_among_handler) {
-        w(g, "~N~Mprocedure Among_Handler (Context : in out Stemmer.Context_Type'Class; Operation : in Operation_Index; Result : out Boolean);~N");
     }
 }
 
@@ -1552,7 +1567,7 @@ static int generate_among_string(struct generator * g, struct among * x, int cou
     return count;
 }
 
-static int generate_among_table(struct generator * g, struct among * x, int start_pos, int *operation) {
+static int generate_among_table(struct generator * g, struct among * x, int start_pos) {
     write_comment(g, x->node);
 
     struct amongvec * v = x->b;
@@ -1562,7 +1577,6 @@ static int generate_among_table(struct generator * g, struct among * x, int star
     g->I[1] = x->literalstring_count - 1;
     w(g, "~N~MA_~I0 : constant Among_Array_Type (0 .. ~I1) := ~+(~N");
 
-    v = x->b;
     for (int i = 0; i < x->literalstring_count; i++) {
         g->I[1] = start_pos;
 
@@ -1582,14 +1596,10 @@ static int generate_among_table(struct generator * g, struct among * x, int star
         g->I[2] = v[i].result;
         w(g, "~I2, ");
 
-        /* Write among's handler. */
-        if (v[i].function == NULL) {
-            w(g, "0)");
-        } else {
-            *operation = *operation + 1;
-            g->I[1] = *operation;
-            w(g, "~I1)");
-        }
+        /* Write among's function index. */
+        g->I[1] = v[i].function_index;
+        w(g, "~I1)");
+
         if (i + 1 < x->literalstring_count) {
             w(g, ",~N");
         }
@@ -1606,50 +1616,59 @@ static void generate_amongs(struct generator * g) {
 
     w(g, "~N~MAmong_String : constant String := ~+");
     int count = 0;
-    for (struct among * x = g->analyser->amongs; x != NULL; x = x->next) {
+    for (struct among * x = g->analyser->amongs; x; x = x->next) {
         if (x->used) {
             count = generate_among_string(g, x, count);
         }
     }
     w(g, ";~N~-");
 
-    int operation = 0;
     int start_pos = 1;
-    for (struct among * x = g->analyser->amongs; x != NULL; x = x->next) {
+    for (struct among * x = g->analyser->amongs; x; x = x->next) {
         if (x->used) {
-            start_pos = generate_among_table(g, x, start_pos, &operation);
+            start_pos = generate_among_table(g, x, start_pos);
         }
     }
     g->outbuf = s;
+}
 
-    if (operation == 0) return;
+static void generate_among_dispatcher(struct generator * g, struct among * x) {
+    if (x->function_count <= 1) return;
 
-    operation = 0;
+    struct amongvec * v = x->b;
 
-    w(g, "~N~Mprocedure Among_Handler (Context : in out Stemmer.Context_Type'Class; Operation : in Operation_Index; Result : out Boolean) is~N");
-    w(g, "~Mbegin~+~N~M");
-    w(g, "case Operation is~+~N~M");
-    for (struct among * x = g->analyser->amongs; x; x = x->next) {
-        struct amongvec * v = x->b;
+    write_comment(g, x->node);
+
+    g->I[0] = x->number;
+    w(g, "~N~Mprocedure Af_~I0 (Z : in out Context_Type; Result : out Boolean) is~N");
+    w(g, "~Mbegin~+~N");
+    w(g, "~Mcase Z.AF is~+~N");
+    for (int n = 1; n <= x->function_count; n++) {
+        w(g, "~Mwhen ");
+        write_int(g, n);
+        w(g, " =>~N");
         for (int i = 0; i < x->literalstring_count; i++) {
-            if (v[i].function != NULL) {
-                operation++;
-                g->I[2] = operation;
-                w(g, "when ~I2 =>~N~M   ");
-                write_varname(g, v[i].function);
-                w(g, " (Context_Type (Context), Result);~N~M");
+            if (v[i].function_index == n) {
+                w(g, "~M   ");
+                write_varref(g, v[i].function);
+                w(g, " (Z, Result);~N");
+                break;
             }
         }
     }
-    w(g, "when others =>~N~M");
-    w(g, "   Result := False;~-~N~Mend case;~-~N~M");
-    w(g, "end Among_Handler;~N");
+    w(g, "~Mwhen others =>~N");
+    w(g, "~M   Result := False;~-~N~Mend case;~-~N");
+    w(g, "~Mend Af_~I0;~N");
+
+    struct str * s = g->outbuf;
+    g->outbuf = g->declarations;
+    w(g, "~Mprocedure Af_~I0 (Z : in out Context_Type; Result : out Boolean);~N");
+    g->outbuf = s;
 }
 
-static void generate_methods(struct generator * g) {
-    for (struct node * p = g->analyser->program; p; p = p->right) {
-        generate(g, p);
-        g->unreachable = false;
+static void generate_among_dispatchers(struct generator * g) {
+    for (struct among * x = g->analyser->amongs; x; x = x->next) {
+        generate_among_dispatcher(g, x);
     }
 }
 
@@ -1703,6 +1722,13 @@ static void generate_groupings(struct generator * g) {
     g->outbuf = s;
 }
 
+static void generate_methods(struct generator * g) {
+    for (struct node * p = g->analyser->program; p; p = p->right) {
+        generate(g, p);
+        g->unreachable = false;
+    }
+}
+
 extern void generate_program_ada(struct generator * g) {
     g->outbuf = str_new();
     g->failure_str = str_new();
@@ -1725,6 +1751,8 @@ extern void generate_program_ada(struct generator * g) {
 
     g->declarations = g->outbuf;
     g->outbuf = str_new();
+
+    generate_among_dispatchers(g);
 
     generate_methods(g);
 

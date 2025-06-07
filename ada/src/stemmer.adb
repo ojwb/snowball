@@ -122,7 +122,6 @@ package body Stemmer with SPARK_Mode is
                          Pattern : in String;
                          Execute : access procedure
                            (Ctx       : in out Context_Type'Class;
-                            Operation : in Operation_Index;
                             Status    : out Boolean);
                          Result  : out Integer) is
       I   : Natural := Amongs'First;
@@ -176,7 +175,8 @@ package body Stemmer with SPARK_Mode is
                   Result := W.Result;
                   return;
                end if;
-               Execute (Context, W.Operation, Status);
+               Context.AF := W.Operation;
+               Execute (Context, Status);
                if Status then
                   Context.C := C + Len;
                   Result := W.Result;
@@ -195,7 +195,6 @@ package body Stemmer with SPARK_Mode is
                                   Pattern : in String;
                                   Execute : access procedure
                                     (Ctx       : in out Context_Type'Class;
-                                     Operation : in Operation_Index;
                                      Status    : out Boolean);
                                   Result  : out Integer) is
       I   : Natural := Amongs'First;
@@ -249,7 +248,8 @@ package body Stemmer with SPARK_Mode is
                   Result := W.Result;
                   return;
                end if;
-               Execute (Context, W.Operation, Status);
+               Context.AF := W.Operation;
+               Execute (Context, Status);
                if Status then
                   Context.C := C - Len;
                   Result := W.Result;
