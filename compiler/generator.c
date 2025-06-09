@@ -1718,47 +1718,143 @@ static void generate_routine_headers(struct generator * g) {
 }
 
 static int generate_among_table_(struct generator * g, struct among * x,
-                                 symbol * prefix) {
+                                 symbol * prefix, symbol * out) {
+//    printf("generate_among_table_(g, x, \"");
+    for (int i = 0; i < SIZE(prefix); ++i) {
+        putchar(prefix[i]);
+    }
+    printf("\", out[%d])\n", (int)SIZE(out));
+    
+    // FIXME forwards version, also need backwards version
     struct amongvec * v = x->b;
 
     symbol min = (symbol)-1;
     symbol max = 0;
-    int has_exact = false;
+    int exact = 0;
     int prefix_len = SIZE(prefix);
     for (int i = 0; i < x->literalstring_count; i++) {
-        // FIXME backwards version
         if (v[i].size < prefix_len) continue;
         if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == prefix_len) {
-            has_exact = true;
+            exact = v[i].result;
             continue;
         }
         symbol ch = v[i].b[prefix_len];
         if (ch < min) min = ch;
         if (ch > max) max = ch;
-        add_to_b(prefix, &ch, 1);
-        int code = generate_among_table_(g, x, prefix);
-        (void)code;
-        SIZE(prefix) = prefix_len;
-    }
-    if (min == max) {
-        return 0;
     }
     if (min > max) {
-        printf("[");
+#if 0
+        printf("nothing with prefix [");
         for (int i = 0; i < prefix_len; ++i) {
             putchar(prefix[i]);
         }
-        printf("]\n");
-        return -1;
+        printf("], exact = %d\n", exact);
+#endif
+        return exact;
     }
-    printf("min = %c max = %c has_exact = %d : ", min, max, has_exact);
+
+    int offset = SIZE(out);
+
+    if (min == max) {
+        // 0       2,-           RES_IES | 'i' 'e'
+        // ^exact  ^length,0
+        int old_prefix_len = prefix_len;
+        int old_exact = exact;
+        do {
+            add_to_b(prefix, &min, 1);
+            ++prefix_len;
+            min = (symbol)-1;
+            max = 0;
+            exact = 0;
+            for (int i = 0; i < x->literalstring_count; i++) {
+                if (v[i].size < prefix_len) continue;
+                if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+                    continue;
+                if (v[i].size == prefix_len) {
+                    exact = v[i].result;
+                    continue;
+                }
+                symbol ch = v[i].b[prefix_len];
+                if (ch < min) min = ch;
+                if (ch > max) max = ch;
+            }
+        } while (min == max && exact == 0);
+
+        int entry_len = ((prefix_len - old_prefix_len + 1) >> 1) + 3;
+        if (CAPACITY(out) < SIZE(out) + entry_len) {
+            out = increase_capacity_b(out, entry_len);
+        }
+        SIZE(out) += entry_len;
+        out[offset] = old_exact;
+        int segment_len = prefix_len - old_prefix_len;
+        out[offset + 1] = segment_len;
+        if (min > max) {
+            out[offset + 2] = exact ? exact : 999;
+        } else {
+            out[offset + 2] = generate_among_table_(g, x, prefix, out);
+        }
+        out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
+        char * to = (char*)&(out[offset+3]);
+        symbol * from = prefix + old_prefix_len;
+        for (int i = 0; i < segment_len; ++i) to[i] = from[i];
+        printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
+               offset,
+               out[offset],
+               out[offset + 1],
+               out[offset + 2],
+               segment_len,
+               (char*)&out[offset + 3]);
+        printf("\t[");
+        for (int i = 0; i < old_prefix_len; ++i) {
+            putchar(prefix[i]);
+        }
+        printf("]\n");
+        SIZE(prefix) = old_prefix_len;
+        return offset;
+    }
+
+    // 0       'd','s'         OFFSET_D 0 0 ... OFFSET_S
+    int entry_len = (max - min) + 1 + 2;
+    if (CAPACITY(out) < SIZE(out) + entry_len) {
+        out = increase_capacity_b(out, entry_len);
+    }
+    SIZE(out) += entry_len;
+    out[offset] = exact;
+    out[offset + 1] = min + (max << 8);
+    memset(out + offset + 2, 0, (max - min + 1) * 2);
+    int prev_ch = -1;
+    for (int i = 0; i < x->literalstring_count; i++) {
+        if (v[i].size < prefix_len) continue;
+        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+            continue;
+        if (v[i].size == prefix_len) {
+            continue;
+        }
+        symbol ch = v[i].b[prefix_len];
+        if (ch == prev_ch)  continue;
+        prev_ch = ch;
+        add_to_b(prefix, &ch, 1);
+        out[offset + 2 + (ch - min)] = generate_among_table_(g, x, prefix, out);
+        SIZE(prefix) = prefix_len;
+    }
+    printf("%d:\t%d\t%c,%c", offset, exact, min, max);
+    for (int i = min; i <= max; i++) {
+        int qqq = out[offset + 2 + (i - min)];
+        if (qqq)
+            printf("\t%c:%d", i, qqq);
+    }
+    printf("\t[");
     for (int i = 0; i < prefix_len; ++i) {
         putchar(prefix[i]);
     }
-    printf("\n");
-    return 42; // FIXME code
+    printf("]\n");
+
+    if (min > max) {
+        return -1;
+    }
+    return offset; // FIXME code
 }
 
 static void generate_among_table(struct generator * g, struct among * x) {
@@ -1821,14 +1917,20 @@ static void generate_among_table(struct generator * g, struct among * x) {
     }
 #endif
 
-    g->I[1] = x->literalstring_count;
-    w(g, "~Mstatic const symbol among a_~I0[~I1] = {~N");
-
     symbol * b = create_b(4096);
+    symbol * at = create_b(32); // prefix/suffix we're at.
     if ((x->substring ? x->substring : x->node)->mode == m_forward) {
-        generate_among_table_(g, x, b);
+        generate_among_table_(g, x, at, b);
         printf("\n");
     }
+    lose_b(at);
+    g->I[1] = x->literalstring_count;
+    w(g, "~Mstatic const symbol among a_~I0[~I1] = {~N~+");
+    write_margin(g);
+    wlitarray(g, b);
+    write_newline(g);
+    w(g, "~-~M}~N");
+    lose_b(b);
 
     for (int i = 0; i < x->literalstring_count; i++) {
         g->I[1] = i;
