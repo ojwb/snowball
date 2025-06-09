@@ -1724,7 +1724,7 @@ static int generate_among_table_(struct generator * g, struct among * x,
         putchar(prefix[i]);
     }
     printf("\", out[%d])\n", (int)SIZE(out));
-    
+
     // FIXME forwards version, also need backwards version
     struct amongvec * v = x->b;
 
@@ -1903,7 +1903,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
     // needed when there's a function.
     //
     // Use e.g. FN_IES for that case then have the dispatch function return the
-    // RES_* or FN_* for the next longest suffix to try? 
+    // RES_* or FN_* for the next longest suffix to try?
 #if 0
     g->I[0] = x->number;
     for (int i = 0; i < x->literalstring_count; i++) {
