@@ -235,21 +235,23 @@ extern int eq_v_b(struct SN_env * z, const symbol * p) {
     return eq_s_b(z, SIZE(p), p);
 }
 
-extern int find_among(struct SN_env * z, const unsigned short * v,
+extern int find_among(struct SN_env * z, const short * v,
                       int (*call_among_func)(struct SN_env*)) {
+    (void)call_among_func; /* FIXME */
     int c = z->c;
     int l = z->l;
-    size_t o = 0;
-    while (true) {
+    int o = 0;
+    while (1) {
         if (o < 0) {
             z->c = c;
             return -o;
         }
         if (c < l) {
-            symbol a = v[o + 1] & 0xff;
-            symbol b = v[o + 1] >> 8;
+            unsigned short x = (unsigned short)v[o + 1];
+            symbol a = x & 0xff;
+            symbol b = x >> 8;
             if (b) {
-                // N-way dispatch.
+                /* N-way dispatch. */
                 symbol ch = z->p[c];
                 if (ch >= a && ch <= b) {
                     ++c;
@@ -257,7 +259,7 @@ extern int find_among(struct SN_env * z, const unsigned short * v,
                     continue;
                 }
             } else {
-                // Substring segment.
+                /* Substring segment. */
                 if (z->l - z->c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
                     c += a;
                     o = v[o + 2];
@@ -265,26 +267,28 @@ extern int find_among(struct SN_env * z, const unsigned short * v,
                 }
             }
         }
-        o = v[0];
+        o = v[0]; /* FIXME: Don't flip sign and here just: return v[0]; */
     }
 }
 
 /* find_among_b is for backwards processing. Same comments apply */
-extern int find_among_b(struct SN_env * z, const unsigned short * v,
+extern int find_among_b(struct SN_env * z, const short * v,
                         int (*call_among_func)(struct SN_env*)) {
+    (void)call_among_func; /* FIXME */
     int c = z->c;
     int lb = z->lb;
-    size_t o = 0;
-    while (true) {
+    int o = 0;
+    while (1) {
         if (o < 0) {
             z->c = c;
             return -o;
         }
         if (c > lb) {
-            symbol a = v[o + 1] & 0xff;
-            symbol b = v[o + 1] >> 8;
+            unsigned short x = (unsigned short)v[o + 1];
+            symbol a = x & 0xff;
+            symbol b = x >> 8;
             if (b) {
-                // N-way dispatch.
+                /* N-way dispatch. */
                 symbol ch = z->p[c - 1];
                 if (ch >= a && ch <= b) {
                     --c;
@@ -292,7 +296,7 @@ extern int find_among_b(struct SN_env * z, const unsigned short * v,
                     continue;
                 }
             } else {
-                // Substring segment.
+                /* Substring segment. */
                 if (z->c - z->lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
                     c -= a;
                     o = v[o + 2];
@@ -300,7 +304,7 @@ extern int find_among_b(struct SN_env * z, const unsigned short * v,
                 }
             }
         }
-        o = v[0];
+        o = v[0]; /* FIXME: Don't flip sign and here just: return v[0]; */
     }
 }
 
