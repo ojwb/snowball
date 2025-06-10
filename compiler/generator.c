@@ -1718,11 +1718,11 @@ static void generate_routine_headers(struct generator * g) {
 
 // FIXME: Need to encode function_index
 static int generate_among_table_f(struct generator * g, struct among * x,
-                                  symbol * prefix, symbol * out) {
+                                  symbol ** prefix_ptr, symbol * out) {
 #if 0
     printf("generate_among_table_f(g, x, \"");
-    for (int i = 0; i < SIZE(prefix); ++i) {
-        putchar(prefix[i]);
+    for (int i = 0; i < SIZE(*prefix_ptr); ++i) {
+        putchar((*prefix_ptr)[i]);
     }
     printf("\", out[%d])\n", (int)SIZE(out));
 #endif
@@ -1733,10 +1733,10 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     symbol min = (symbol)-1;
     symbol max = 0;
     int exact = 0;
-    int prefix_len = SIZE(prefix);
+    int prefix_len = SIZE(*prefix_ptr);
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
-        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+        if (memcmp(v[i].b, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
@@ -1750,7 +1750,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
 #if 0
         printf("nothing with prefix [");
         for (int i = 0; i < prefix_len; ++i) {
-            putchar(prefix[i]);
+            putchar((*prefix_ptr)[i]);
         }
         printf("], exact = %d\n", exact);
 #endif
@@ -1765,14 +1765,14 @@ static int generate_among_table_f(struct generator * g, struct among * x,
         int old_prefix_len = prefix_len;
         int old_exact = exact;
         do {
-            add_to_b(prefix, &min, 1);
+            *prefix_ptr = add_to_b(*prefix_ptr, &min, 1);
             ++prefix_len;
             min = (symbol)-1;
             max = 0;
             exact = 0;
             for (int i = 0; i < x->literalstring_count; i++) {
                 if (v[i].size < prefix_len) continue;
-                if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+                if (memcmp(v[i].b, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
@@ -1798,11 +1798,11 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             }
             out[offset + 2] = exact ? -exact : 999;
         } else {
-            out[offset + 2] = generate_among_table_f(g, x, prefix, out);
+            out[offset + 2] = generate_among_table_f(g, x, prefix_ptr, out);
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
-        symbol * from = prefix + old_prefix_len;
+        symbol * from = *prefix_ptr + old_prefix_len;
         for (int i = 0; i < segment_len; ++i) to[i] = from[i];
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
@@ -1813,10 +1813,10 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                (char*)&out[offset + 3]);
         printf("\t[");
         for (int i = 0; i < old_prefix_len; ++i) {
-            putchar(prefix[i]);
+            putchar((*prefix_ptr)[i]);
         }
         printf("]\n");
-        SIZE(prefix) = old_prefix_len;
+        SIZE(*prefix_ptr) = old_prefix_len;
         return offset;
     }
 
@@ -1832,7 +1832,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     int prev_ch = -1;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
-        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+        if (memcmp(v[i].b, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == prefix_len) {
             continue;
@@ -1840,9 +1840,9 @@ static int generate_among_table_f(struct generator * g, struct among * x,
         symbol ch = v[i].b[prefix_len];
         if (ch == prev_ch)  continue;
         prev_ch = ch;
-        add_to_b(prefix, &ch, 1);
-        out[offset + 2 + (ch - min)] = generate_among_table_f(g, x, prefix, out);
-        SIZE(prefix) = prefix_len;
+        *prefix_ptr = add_to_b(*prefix_ptr, &ch, 1);
+        out[offset + 2 + (ch - min)] = generate_among_table_f(g, x, prefix_ptr, out);
+        SIZE(*prefix_ptr) = prefix_len;
     }
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
@@ -1852,7 +1852,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     }
     printf("\t[");
     for (int i = 0; i < prefix_len; ++i) {
-        putchar(prefix[i]);
+        putchar((*prefix_ptr)[i]);
     }
     printf("]\n");
 
@@ -1862,13 +1862,23 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     return offset; // FIXME code
 }
 
+// Like add_to_b, but insert at the start.
+extern symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
+    int x = SIZE(p) + n - CAPACITY(p);
+    if (x > 0) p = increase_capacity_b(p, x);
+    memmove(p + n, p, SIZE(p) * sizeof(symbol));
+    memmove(p, q, n * sizeof(symbol));
+    SIZE(p) += n;
+    return p;
+}
+
 // FIXME: prefix is suffix here!  Rename to xfix?  Merge this with _f version?
 static int generate_among_table_b(struct generator * g, struct among * x,
-                                  symbol * prefix, symbol * out) {
+                                  symbol ** prefix_ptr, symbol * out) {
 #if 0
     printf("generate_among_table_b(g, x, \"");
-    for (int i = 0; i < SIZE(prefix); ++i) {
-        putchar(prefix[i]);
+    for (int i = 0; i < SIZE(*prefix_ptr); ++i) {
+        putchar((*prefix_ptr)[i]);
     }
     printf("\", out[%d])\n", (int)SIZE(out));
 #endif
@@ -1879,16 +1889,16 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     symbol min = (symbol)-1;
     symbol max = 0;
     int exact = 0;
-    int prefix_len = SIZE(prefix);
+    int prefix_len = SIZE(*prefix_ptr);
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
-        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+        if (memcmp(v[i].b + v[i].size - prefix_len, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
             continue;
         }
-        symbol ch = v[i].b[prefix_len];
+        symbol ch = v[i].b[v[i].size - 1 - prefix_len];
         if (ch < min) min = ch;
         if (ch > max) max = ch;
     }
@@ -1896,7 +1906,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
 #if 0
         printf("nothing with prefix [");
         for (int i = 0; i < prefix_len; ++i) {
-            putchar(prefix[i]);
+            putchar((*prefix_ptr)[i]);
         }
         printf("], exact = %d\n", exact);
 #endif
@@ -1911,20 +1921,20 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         int old_prefix_len = prefix_len;
         int old_exact = exact;
         do {
-            add_to_b(prefix, &min, 1);
+            *prefix_ptr = prefix_to_b(*prefix_ptr, &min, 1);
             ++prefix_len;
             min = (symbol)-1;
             max = 0;
             exact = 0;
             for (int i = 0; i < x->literalstring_count; i++) {
                 if (v[i].size < prefix_len) continue;
-                if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+                if (memcmp(v[i].b + v[i].size - prefix_len, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
                     continue;
                 }
-                symbol ch = v[i].b[prefix_len];
+                symbol ch = v[i].b[v[i].size - 1 - prefix_len];
                 if (ch < min) min = ch;
                 if (ch > max) max = ch;
             }
@@ -1944,11 +1954,11 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             }
             out[offset + 2] = exact ? -exact : 999;
         } else {
-            out[offset + 2] = generate_among_table_b(g, x, prefix, out);
+            out[offset + 2] = generate_among_table_b(g, x, prefix_ptr, out);
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
-        symbol * from = prefix + old_prefix_len;
+        symbol * from = *prefix_ptr + old_prefix_len;
         for (int i = 0; i < segment_len; ++i) to[i] = from[i];
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
@@ -1959,10 +1969,10 @@ static int generate_among_table_b(struct generator * g, struct among * x,
                (char*)&out[offset + 3]);
         printf("\t[");
         for (int i = 0; i < old_prefix_len; ++i) {
-            putchar(prefix[i]);
+            putchar((*prefix_ptr)[i]);
         }
         printf("]\n");
-        SIZE(prefix) = old_prefix_len;
+        SIZE(*prefix_ptr) = old_prefix_len;
         return offset;
     }
 
@@ -1978,17 +1988,17 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     int prev_ch = -1;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
-        if (memcmp(v[i].b, prefix, prefix_len * sizeof(symbol)) != 0)
+        if (memcmp(v[i].b + v[i].size - prefix_len, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == prefix_len) {
             continue;
         }
-        symbol ch = v[i].b[prefix_len];
+        symbol ch = v[i].b[v[i].size - 1 - prefix_len];
         if (ch == prev_ch)  continue;
         prev_ch = ch;
-        add_to_b(prefix, &ch, 1);
-        out[offset + 2 + (ch - min)] = generate_among_table_b(g, x, prefix, out);
-        SIZE(prefix) = prefix_len;
+        *prefix_ptr = prefix_to_b(*prefix_ptr, &ch, 1);
+        out[offset + 2 + (ch - min)] = generate_among_table_b(g, x, prefix_ptr, out);
+        SIZE(*prefix_ptr) = prefix_len;
     }
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
@@ -1998,7 +2008,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     }
     printf("\t[");
     for (int i = 0; i < prefix_len; ++i) {
-        putchar(prefix[i]);
+        putchar((*prefix_ptr)[i]);
     }
     printf("]\n");
 
@@ -2071,9 +2081,9 @@ static void generate_among_table(struct generator * g, struct among * x) {
     symbol * b = create_b(4096);
     symbol * xfix = create_b(32); // prefix/suffix
     if ((x->substring ? x->substring : x->node)->mode == m_forward) {
-        generate_among_table_f(g, x, xfix, b);
+        generate_among_table_f(g, x, &xfix, b);
     } else {
-        generate_among_table_b(g, x, xfix, b);
+        generate_among_table_b(g, x, &xfix, b);
     }
     lose_b(xfix);
     printf("\n");
