@@ -1789,7 +1789,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             out = increase_capacity_b(out, entry_len);
         }
         SIZE(out) += entry_len;
-        out[offset] = -old_exact; // FIXME Don't negate?
+        out[offset] = old_exact;
         int segment_len = prefix_len - old_prefix_len;
         out[offset + 1] = segment_len;
         if (min > max) {
@@ -1945,7 +1945,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             out = increase_capacity_b(out, entry_len);
         }
         SIZE(out) += entry_len;
-        out[offset] = -old_exact; // FIXME Don't negate?
+        out[offset] = old_exact;
         int segment_len = prefix_len - old_prefix_len;
         out[offset + 1] = segment_len;
         if (min > max) {
@@ -1958,7 +1958,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
-        symbol * from = *prefix_ptr + old_prefix_len;
+        symbol * from = *prefix_ptr;
         for (int i = 0; i < segment_len; ++i) to[i] = from[i];
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
@@ -1972,6 +1972,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             putchar((*prefix_ptr)[i]);
         }
         printf("]\n");
+        memmove(*prefix_ptr, *prefix_ptr + SIZE(*prefix_ptr) - old_prefix_len, old_prefix_len * 2);
         SIZE(*prefix_ptr) = old_prefix_len;
         return offset;
     }
@@ -1998,6 +1999,9 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         prev_ch = ch;
         *prefix_ptr = prefix_to_b(*prefix_ptr, &ch, 1);
         out[offset + 2 + (ch - min)] = generate_among_table_b(g, x, prefix_ptr, out);
+        printf("+++ generate_among_table_b(prefix_len = %d) ch=%c -> ", SIZE(*prefix_ptr), ch);
+        printf("%d\n", out[offset + 2 + (ch - min)]);
+        memmove(*prefix_ptr, *prefix_ptr + SIZE(*prefix_ptr) - prefix_len, prefix_len * 2);
         SIZE(*prefix_ptr) = prefix_len;
     }
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
