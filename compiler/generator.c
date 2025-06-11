@@ -1744,7 +1744,10 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
-            if (exact < 0) exact = 32767;
+            if (v[i].function_index) {
+                printf("F1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+            }
+            if (exact < 0) exact = 0x3fff;
             continue;
         }
         symbol ch = v[i].b[prefix_len];
@@ -1781,7 +1784,10 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
-                    if (exact < 0) exact = 32767;
+                    if (v[i].function_index) {
+                        printf("F2: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                    }
+                    if (exact < 0) exact = 0x3fff;
                     continue;
                 }
                 symbol ch = v[i].b[prefix_len];
@@ -1867,11 +1873,11 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     if (min > max) {
         return -1;
     }
-    return offset; // FIXME code
+    return offset;
 }
 
 // Like add_to_b, but insert at the start.
-extern symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
+static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
     int x = SIZE(p) + n - CAPACITY(p);
     if (x > 0) p = increase_capacity_b(p, x);
     memmove(p + n, p, SIZE(p) * sizeof(symbol));
@@ -1891,7 +1897,6 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     printf("\", out[%d])\n", (int)SIZE(out));
 #endif
 
-    // FIXME forwards version, also need backwards version
     struct amongvec * v = x->b;
 
     symbol min = (symbol)-1;
@@ -1904,7 +1909,10 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
-            if (exact < 0) exact = 32767;
+            if (v[i].function_index) {
+                printf("B1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+            }
+            if (exact < 0) exact = 0x3fff;
             continue;
         }
         symbol ch = v[i].b[v[i].size - 1 - prefix_len];
@@ -1941,7 +1949,10 @@ static int generate_among_table_b(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
-                    if (exact < 0) exact = 32767;
+                    if (v[i].function_index) {
+                        printf("B2: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                    }
+                    if (exact < 0) exact = 0x3fff;
                     continue;
                 }
                 symbol ch = v[i].b[v[i].size - 1 - prefix_len];
