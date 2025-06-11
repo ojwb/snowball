@@ -1717,6 +1717,11 @@ static void generate_routine_headers(struct generator * g) {
 }
 
 // FIXME: Need to encode function_index
+//
+// FIXME: we can point to the same subsection to share resolutions that
+// are encoded exactly the same e.g. in forwards mode, both of these end up
+// allowing 'n' or 'ns':
+// among ( 'ion' 'ions' 'ian' 'ians' )
 static int generate_among_table_f(struct generator * g, struct among * x,
                                   symbol ** prefix_ptr, symbol * out) {
 #if 0
@@ -1740,6 +1745,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
+            if (exact < 0) exact = 32767;
             continue;
         }
         symbol ch = v[i].b[prefix_len];
@@ -1776,6 +1782,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
+                    if (exact < 0) exact = 32767;
                     continue;
                 }
                 symbol ch = v[i].b[prefix_len];
@@ -1828,7 +1835,9 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     SIZE(out) += entry_len;
     out[offset] = exact;
     out[offset + 1] = min + (max << 8);
-    memset(out + offset + 2, 0, (max - min + 1) * 2);
+    for (int i = 0; i < max - min + 1; ++i) {
+        out[offset + 2 + i] = 0;
+    }
     int prev_ch = -1;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
@@ -1896,6 +1905,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
+            if (exact < 0) exact = 32767;
             continue;
         }
         symbol ch = v[i].b[v[i].size - 1 - prefix_len];
@@ -1932,6 +1942,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
+                    if (exact < 0) exact = 32767;
                     continue;
                 }
                 symbol ch = v[i].b[v[i].size - 1 - prefix_len];
@@ -1985,7 +1996,9 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     SIZE(out) += entry_len;
     out[offset] = exact;
     out[offset + 1] = min + (max << 8);
-    memset(out + offset + 2, 0, (max - min + 1) * 2);
+    for (int i = 0; i < max - min + 1; ++i) {
+        out[offset + 2 + i] = 0;
+    }
     int prev_ch = -1;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
@@ -2048,13 +2061,18 @@ static void generate_among_table(struct generator * g, struct among * x) {
     //                           offset_t|byte...
     // 0       2     0           RES_IES | 'i' 'e'                 // 2+1+1  = 4
     // OFFSET_S:
-    // RES_S   'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
+    // RES_S   'e'   'u'         OFFSET_ES (RES_S) (RES_S) .. RES_SS (RES_S) RES_US  // 2+17   = 19
+    //
+    // FIXME FIXME FIXME : problem is what c is left at I think
+    //
     // OFFSET_ES:
     // RES_ES  2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
     //
     // Total                                                                   45 * sizeof(short)?
     //
     // RES_* are -(x->result) in the current approach with values -1, -2, -3, ...
+    // Except x->result can be 1, 2, ... or -1 (for empty action) so map -1 to
+    // a high positive value (before negation).  Caller doesn't care.
     //
     // OFFSET_* are offsets into this table with values > 0
     //
@@ -2082,7 +2100,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
     }
 #endif
 
-    symbol * b = create_b(4096);
+    symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
     if ((x->substring ? x->substring : x->node)->mode == m_forward) {
         generate_among_table_f(g, x, &xfix, b);

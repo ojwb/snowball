@@ -241,10 +241,15 @@ extern int find_among(struct SN_env * z, const short * v,
     int c = z->c;
     int l = z->l;
     int o = 0;
+    int r = 0;
     while (1) {
         if (o < 0) {
             z->c = c;
             return -o;
+        }
+        if (v[o]) {
+            r = v[o];
+            z->c = c;
         }
         if (c < l) {
             unsigned short x = (unsigned short)v[o + 1];
@@ -254,21 +259,18 @@ extern int find_among(struct SN_env * z, const short * v,
                 /* N-way dispatch. */
                 symbol ch = z->p[c];
                 if (ch >= a && ch <= b) {
-                    ++c;
                     o = v[o + (ch - a) + 2];
-                    continue;
+                    if (o) { ++c; continue; }
                 }
             } else {
                 /* Substring segment. */
                 if (l - c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
-                    c += a;
                     o = v[o + 2];
-                    continue;
+                    if (o) { c += a; continue; }
                 }
             }
         }
-        z->c = c;
-        return v[0];
+        return r;
     }
 }
 
@@ -279,10 +281,15 @@ extern int find_among_b(struct SN_env * z, const short * v,
     int c = z->c;
     int lb = z->lb;
     int o = 0;
+    int r = 0;
     while (1) {
         if (o < 0) {
             z->c = c;
             return -o;
+        }
+        if (v[o]) {
+            r = v[o];
+            z->c = c;
         }
         if (c > lb) {
             unsigned short x = (unsigned short)v[o + 1];
@@ -292,21 +299,18 @@ extern int find_among_b(struct SN_env * z, const short * v,
                 /* N-way dispatch. */
                 symbol ch = z->p[c - 1];
                 if (ch >= a && ch <= b) {
-                    --c;
                     o = v[o + (ch - a) + 2];
-                    continue;
+                    if (o) { --c; continue; }
                 }
             } else {
                 /* Substring segment. */
                 if (c - lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
-                    c -= a;
                     o = v[o + 2];
-                    continue;
+                    if (o) { c -= a; continue; }
                 }
             }
         }
-        z->c = c;
-        return v[0];
+        return r;
     }
 }
 
