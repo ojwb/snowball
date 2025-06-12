@@ -1716,12 +1716,46 @@ static void generate_routine_headers(struct generator * g) {
     }
 }
 
-// FIXME: Need to encode function_index
+// FIXME: Need to encode function_index.
+//
+// The simplest approach seems to be to call the function as we descend the
+// tree of possible prefixes/suffixes.  If it passes, we update the best
+// candidate so far; if not we handle as we would for no entry/no match.
+//
+// This is potentially inefficient if there are prefixes/suffixes where
+// one is a prefix/suffix of the other and both have among functions (or
+// for a worse case, a chain - e.g. in lovins.sbl there are two such 
+// chains of length 5).  We would eagerly call all functions down the
+// chain, whereas we could go until matching stops ignoring the functions
+// and then back up testing functions until we find a prefix/suffix which
+// matches (either without a function or with a function which returns t).
+// In the best case this calls no functions!  The binary-chop implementation 
+// achieves this minimising of among function calls.
+//
+// In practice, only lovins.sbl currently has such chains (finnish.sbl and
+// hindi.sbl don't; esperanto.sbl and indonesian.sbl have been refactored to
+// avoid among functions, but of the old versions: esperanto had a chain -n ->
+// -jn but the among function on both tested `'-' or digit` so in practice we
+// would only call one among function with the eager approach; indonesian.sbl
+// had a chain -an -> -kan where we would sometimes need to call the functions
+// for both).
 //
 // FIXME: we can point to the same subsection to share resolutions that
 // are encoded exactly the same e.g. in forwards mode, both of these end up
 // allowing 'n' or 'ns':
 // among ( 'ion' 'ions' 'ian' 'ians' )
+//
+// FIXME: Approaching half the ranges we generate have only the first and
+// last entries present with entries between all being zero.  The worst
+// case is a gap of 150 between 'a' and 0xf8.  We could encode such cases by
+// only storing the pointers for max and min and reduce the table size (which
+// reduces the working set size and so is more cache friendly) e.g. for a gap
+// of 150 we would save 300 bytes; in total we'd save 55104 bytes.
+//
+// Possibly we could extend to handle cases where there are more than two
+// entries but which are very sparse by binary chop?  E.g. 3 items needs
+// at most 2 compares (and 5/3 on average).  That would require storing
+// the byte for the non-extreme value somewhere though.
 static int generate_among_table_f(struct generator * g, struct among * x,
                                   symbol ** prefix_ptr, symbol * out) {
 #if 0
@@ -1744,10 +1778,41 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             continue;
         if (v[i].size == prefix_len) {
             exact = v[i].result;
+            if (exact < 0) exact = 0x3fff;
             if (v[i].function_index) {
                 printf("F1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
+                //
+                // if new entry, map v[i].i to something which allows us to jump to
+                // processing that in this table:
+                // cursor offset to apply to original z->c and offset in this table?
+                //
+                // * In a range, if the among function fails then it is just like a
+                //   zero entry and we use the "exact" entry instead
+                // * For a segment we use the "exact" entry instead
+                // * If an "exact" entry has an among function which fails, then we
+                //   need to use the "exact" for the parent of this entry.  We may
+                //   need to do that recursively though.  We could store a list of
+                //   these entries in the table.
+                //
+                // So FN_XYZ entry is:
+                //
+                // <af index>,<cursor adjustment for f> <t-code> <f-code>
+                //
+                // where <t-code> could be OFFSET_* or RESULT_*
+                //       <f-code> could be 0 or OFFSET_* or RESULT_* or e.g. FN_YZ
+                //
+                // exact = 0x400 | fn_entry_index;
+                int fn = SIZE(out);
+                int entry_len = 3;
+                if (CAPACITY(out) < SIZE(out) + entry_len) {
+                    out = increase_capacity_b(out, entry_len);
+                }
+                SIZE(out) += entry_len;
+                out[fn] = v[i].function_index | (cursor_adj << 8);
+                out[fn + 1] = exact;
+                out[fn + 2] = 
             }
-            if (exact < 0) exact = 0x3fff;
             continue;
         }
         symbol ch = v[i].b[prefix_len];
@@ -1844,6 +1909,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
         out[offset + 2 + i] = 0;
     }
     int prev_ch = -1;
+    byte middle_used = false;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
         if (memcmp(v[i].b, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
@@ -1857,7 +1923,9 @@ static int generate_among_table_f(struct generator * g, struct among * x,
         *prefix_ptr = add_to_b(*prefix_ptr, &ch, 1);
         out[offset + 2 + (ch - min)] = generate_among_table_f(g, x, prefix_ptr, out);
         SIZE(*prefix_ptr) = prefix_len;
+        middle_used = middle_used || (ch > min && ch < max);
     }
+    //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];
@@ -2010,6 +2078,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         out[offset + 2 + i] = 0;
     }
     int prev_ch = -1;
+    byte middle_used = false;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
         if (memcmp(v[i].b + v[i].size - prefix_len, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
@@ -2026,7 +2095,9 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         printf("%d\n", out[offset + 2 + (ch - min)]);
         memmove(*prefix_ptr, *prefix_ptr + SIZE(*prefix_ptr) - prefix_len, prefix_len * 2);
         SIZE(*prefix_ptr) = prefix_len;
+        middle_used = middle_used || (ch > min && ch < max);
     }
+    //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];

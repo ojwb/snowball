@@ -260,13 +260,19 @@ extern int find_among(struct SN_env * z, const short * v,
                 symbol ch = z->p[c];
                 if (ch >= a && ch <= b) {
                     o = v[o + (ch - a) + 2];
-                    if (o) { ++c; continue; }
+                    if (o) {
+                        ++c;
+                        continue;
+                    }
                 }
             } else {
                 /* Substring segment. */
                 if (l - c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
                     o = v[o + 2];
-                    if (o) { c += a; continue; }
+                    if (o) {
+                        c += a;
+                        continue;
+                    }
                 }
             }
         }
@@ -300,13 +306,19 @@ extern int find_among_b(struct SN_env * z, const short * v,
                 symbol ch = z->p[c - 1];
                 if (ch >= a && ch <= b) {
                     o = v[o + (ch - a) + 2];
-                    if (o) { --c; continue; }
+                    if (o) {
+                        --c;
+                        continue;
+                    }
                 }
             } else {
                 /* Substring segment. */
                 if (c - lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
                     o = v[o + 2];
-                    if (o) { c -= a; continue; }
+                    if (o) {
+                        c -= a;
+                        continue;
+                    }
                 }
             }
         }
