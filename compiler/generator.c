@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>   /* for fprintf etc */
 #include <stdlib.h>  /* for free etc */
 #include <string.h>  /* for strlen */
@@ -1742,7 +1743,9 @@ static void generate_routine_headers(struct generator * g) {
 //
 // FIXME: we could track a threshold to include in the limit check at each
 // point and avoid checking when the strng is too short for any remaining
-// options...
+// options.  This would be added in the first limit check and mean we would
+// not need the additional limit check in the substring case (because this
+// thereshold would be >= the segment size).  See min_length_match below.
 //
 // FIXME: we can point to the same subsection to share resolutions that
 // are encoded exactly the same e.g. in forwards mode, both of these end up
@@ -1776,6 +1779,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
     symbol max = 0;
     int exact = 0;
     int prefix_len = SIZE(*prefix_ptr);
+    int min_length_match = INT_MAX;
     for (int i = 0; i < x->literalstring_count; i++) {
         if (v[i].size < prefix_len) continue;
         if (memcmp(v[i].b, *prefix_ptr, prefix_len * sizeof(symbol)) != 0)
@@ -1835,12 +1839,15 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                     out = increase_capacity_b(out, entry_len);
                 }
                 SIZE(out) += entry_len;
+#if 0
                 out[fn] = v[i].function_index | (cursor_adj << 8);
                 out[fn + 1] = exact;
                 out[fn + 2] = 
+#endif
             }
             continue;
         }
+        if (v[i].size < min_length_match) min_length_match = v[i].size;
         symbol ch = v[i].b[prefix_len];
         if (ch < min) min = ch;
         if (ch > max) max = ch;
@@ -1855,6 +1862,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
 #endif
         return -exact;
     }
+    printf("=== %d\n", min_length_match);
 
     int offset = SIZE(out);
 
@@ -2161,19 +2169,21 @@ static void generate_among_table(struct generator * g, struct among * x) {
 
     // Work in bytes for UTF-8:
     //
-    // offset_t byte byte        offset_t...
-    // <exact> <min> <range>     <pointer>...
-    // 0       'd'   's'         OFFSET_D 0 0 ... OFFSET_S         // 2+16   = 18
+    // offset_t min_m  byte byte         offset_t...
+    // <exact>         <min> <range>     <pointer>...
+    // 0        1      'd'   's'         OFFSET_D 0 0 ... OFFSET_S         // 2+16   = 18
     // OFFSET_D:
-    //                           offset_t|byte...
-    // 0       2     0           RES_IES | 'i' 'e'                 // 2+1+1  = 4
+    //                                   offset_t|byte...
+    // 0        2      2     0           RES_IES | 'i' 'e'                 // 2+1+1  = 4
     // OFFSET_S:
-    // RES_S   'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
+    // RES_S    1      'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
     //
     // OFFSET_ES:
-    // RES_ES  2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
+    // RES_ES   1      2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
     //
     // Total                                                                   45 * sizeof(short)?
+    //
+    // (min_m doesn't help for this among!)
     //
     // RES_* are -(x->result) in the current approach with values -1, -2, -3, ...
     // Except x->result can be 1, 2, ... or -1 (for empty action) so map -1 to
