@@ -1740,6 +1740,10 @@ static void generate_routine_headers(struct generator * g) {
 // had a chain -an -> -kan where we would sometimes need to call the functions
 // for both).
 //
+// FIXME: we could track a threshold to include in the limit check at each
+// point and avoid checking when the strng is too short for any remaining
+// options...
+//
 // FIXME: we can point to the same subsection to share resolutions that
 // are encoded exactly the same e.g. in forwards mode, both of these end up
 // allowing 'n' or 'ns':
@@ -1782,6 +1786,28 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             if (v[i].function_index) {
                 printf("F1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
                 // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
+                //
+                // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
+                // which is the offset to a list of one or more:
+                //
+                // <af index>,<result>,<cursor adjustment for f>
+                //
+                // we iterate this list doing:
+                //
+                //   c = z->c;
+                //   while (1) {
+                //       if (af_index == 0 || call_among_func(af_index)) return result;
+                //       z->c = c - cursor_adjustment_for_f; // or + for find_among_b()
+                //   }
+                //
+                // encoded as two shorts?
+                //
+                // * af_index | (cursor_adjustment_for_f << 8)
+                // * result
+                //
+                // ---
+                //
+                // OLDER RAMBLINGS:
                 //
                 // if new entry, map v[i].i to something which allows us to jump to
                 // processing that in this table:
