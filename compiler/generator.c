@@ -12,6 +12,7 @@
 static void generate(struct generator * g, struct node * p);
 static void w(struct generator * g, const char * s);
 static void writef(struct generator * g, const char * s, struct node * p);
+static void write_unsigned(struct generator * g, unsigned i);
 
 static int new_label(struct generator * g) {
     return g->next_label++;
@@ -1791,28 +1792,28 @@ static void generate_amongs(struct generator * g) {
     g->outbuf = s;
 }
 
-static void set_bit(symbol * b, int i) { b[i/8] |= 1 << i%8; }
+static void set_bit(unsigned * b, int i) { b[i >> 5] |= 1u << (i & 0x1f); }
 
 static void generate_grouping_table(struct generator * g, struct grouping * q) {
     int range = q->largest_ch - q->smallest_ch + 1;
-    int size = (range + 7)/ 8;  /* assume 8 bits per symbol */
+    int size = (range + 31) / 32;  /* assume 8 bits per symbol */
     symbol * b = q->b;
-    symbol * map = create_b(size);
+    unsigned * map = MALLOC(size * sizeof(unsigned));
 
     for (int i = 0; i < size; i++) map[i] = 0;
 
     for (int i = 0; i < SIZE(b); i++) set_bit(map, b[i] - q->smallest_ch);
 
-    w(g, "~Nstatic const unsigned char ");
+    w(g, "~Nstatic const unsigned ");
     write_varname(g, q->name);
     w(g, "[] = { ");
     for (int i = 0; i < size; i++) {
         if (i) w(g, ", ");
-        write_int(g, map[i]);
+        write_unsigned(g, map[i]);
     }
     w(g, " };~N");
 
-    lose_b(map);
+    FREE(map);
 }
 
 static void generate_groupings(struct generator * g) {
@@ -1994,6 +1995,12 @@ extern void write_wchar_as_utf8(struct generator * g, symbol ch) {
 
 extern void write_int(struct generator * g, int i) {
     str_append_int(g->outbuf, i);
+}
+
+static void write_unsigned(struct generator * g, unsigned i) {
+    char buf[32];
+    sprintf(buf, "%u", i);
+    str_append_string(g->outbuf, buf);
 }
 
 extern void write_s(struct generator * g, const byte * s) {

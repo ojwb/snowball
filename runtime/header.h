@@ -28,15 +28,15 @@ extern int skip_utf8(const symbol * p, int c, int limit, int n);
 
 extern int skip_b_utf8(const symbol * p, int c, int limit, int n);
 
-extern int in_grouping_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int in_grouping_b_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int out_grouping_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int out_grouping_b_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
+extern int in_grouping_U(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int in_grouping_b_U(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int out_grouping_U(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int out_grouping_b_U(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
 
-extern int in_grouping(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int in_grouping_b(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int out_grouping(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
-extern int out_grouping_b(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
+extern int in_grouping(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int in_grouping_b(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int out_grouping(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
+extern int out_grouping_b(struct SN_env * z, const unsigned * s, int min, int max, int repeat);
 
 extern int eq_s(struct SN_env * z, int s_size, const symbol * s);
 extern int eq_s_b(struct SN_env * z, int s_size, const symbol * s);
