@@ -105,8 +105,8 @@ static void wlitch(struct generator * g, int ch) {
 static void wlitarray(struct generator * g, symbol * p) {  /* write literal array */
     write_string(g, "{ ");
     for (int i = 0; i < SIZE(p); i++) {
+        if (i) write_string(g, ", ");
         wlitch(g, p[i]);
-        if (i < SIZE(p) - 1) write_string(g, ", ");
     }
     write_string(g, " }");
 }
@@ -296,8 +296,6 @@ static void writef(struct generator * g, const char * input, struct node * p) {
         ch = input[i++];
         switch (ch) {
             case '~': write_char(g, '~'); continue;
-            case 'i': winc(g, p); continue;
-            case 'l': write_check_limit(g, p); continue;
             case 'f': write_failure(g); continue;
             case 'M': write_margin(g); continue;
             case 'N': write_newline(g); continue;
@@ -836,9 +834,14 @@ static void generate_next(struct generator * g, struct node * p) {
               "~Mif (ret < 0) ~f~N"
               "~Mz->c = ret;~N"
               "~}", p);
-    } else
-        writef(g, "~M~l~N"
-              "~M~i~N", p);
+    } else {
+        write_margin(g);
+        write_check_limit(g, p);
+        write_newline(g);
+        write_margin(g);
+        winc(g, p);
+        write_newline(g);
+    }
 }
 
 static void generate_GO_grouping(struct generator * g, struct node * p, int is_goto, int complement) {
@@ -1351,7 +1354,7 @@ static void generate_define(struct generator * g, struct node * p) {
     g->S[0] = q->type == t_routine ? "static" : "extern";
 
     writef(g, "~S0 int ~V(struct SN_env * z) {~N~+", p);
-    if (p->amongvar_needed) w(g, "~Mint among_var;~N");
+    if (q->amongvar_needed) w(g, "~Mint among_var;~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
     g->label_used = 0;
@@ -2276,8 +2279,8 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
     write_varname(g, q->name);
     w(g, "[] = { ");
     for (int i = 0; i < size; i++) {
+        if (i) w(g, ", ");
         write_int(g, map[i]);
-        if (i < size - 1) w(g, ", ");
     }
     w(g, " };~N");
 

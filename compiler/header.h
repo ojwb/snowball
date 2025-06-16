@@ -32,6 +32,7 @@ extern byte * create_s(int n);
 extern void report_s(FILE * out, const byte * p);
 extern void lose_s(byte * p);
 extern byte * increase_capacity_s(byte * p, int n);
+extern byte * ensure_capacity_s(byte * p, int n);
 extern byte * copy_s(const byte * p);
 extern byte * add_s_to_s(byte * p, const char * s, int n);
 extern byte * add_sz_to_s(byte * p, const char * s);
@@ -208,6 +209,7 @@ struct name {
     byte value_used;            /* (For variables) is its value ever used? */
     byte initialised;           /* (For variables) is it ever initialised? */
     byte used_in_definition;    /* (grouping) used in grouping definition? */
+    byte amongvar_needed;       /* for routines, externals */
     struct node * definition;   /* for routines, externals */
     // Initialised to -1; set to -2 if reachable from an external.
     // Reachable names are then numbered 0, 1, 2, ... with separate numbering
@@ -286,7 +288,6 @@ struct node {
     symbol * literalstring;
     int number;
     int line_number;
-    int amongvar_needed;   /* used in routine definitions */
 };
 
 enum name_types {
