@@ -1,0 +1,8 @@
+syntax/unexpected-token.sbl:4: unexpected + after name
+syntax/unexpected-token.sbl:7: unexpected next after $
+syntax/unexpected-token.sbl:8: unexpected number 0 after name
+syntax/unexpected-token.sbl:9: unexpected hop after =
+syntax/unexpected-token.sbl:10: Expected relational operator (did you mean '=='?)
+syntax/unexpected-token.sbl:10: unexpected ) after =
+syntax/unexpected-token.sbl:11: unexpected backwardmode after )
+syntax/unexpected-token.sbl:13: unexpected next after )

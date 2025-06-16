@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+SNOWBALL='../snowball -o tmp'
+for t in syntax/*.sbl ; do
+  b=`echo "$t"|sed 's/\.sbl$//'`
+  printf '%s' "$b"
+  if $SNOWBALL -syntax "$t" 2> tmp.stderr > tmp.syntax ; then
+    echo " NO snowball compiler succeeded"
+    exit 1
+  fi
+  [ ! -f "$b.stderr" ] || diff -u "$b.stderr" tmp.stderr
+  [ ! -f "$b.syntax" ] || diff -u "$b.syntax" tmp.syntax
+  echo " ok"
+done
