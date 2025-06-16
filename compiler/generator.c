@@ -1812,6 +1812,32 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                 // * af_index | (cursor_adjustment_for_f << 8)
                 // * result
                 //
+                // Or we generate C code to handle the among functions outside the
+                // helper.  E.g.
+#ifdef NOTTHIS
+    among_var = find_among(z, a_6);
+    while ((among_var & 0xC000) == 0x4000) { // or if () if no chaining
+        int c = z->c;
+        switch (among_var & 0x3fff) { // Or can use smallest all-1 mask that works.
+            // Need a case for each unique (routine, cursor_adjustment, result) tuple
+            case 0: {
+                ret = r_VI();
+                z->c = c; // Only needed if r_VI can modify c.
+                if (ret > 0) { among_var = -1; break; } // Successful result.
+                if (ret == 0) { among_var = 0; break; } // Chain here... setting z->c = c - N; or c + N;
+                among_var = 0; // E.g. slice_check failed in routine.
+                break;
+            }
+            // In general may have the same function called by more
+            // than one case to handle different results.
+            case 1:
+                ret = r_LONG();
+                // ...
+                break;
+            }
+        }
+    }
+#endif
                 // ---
                 //
                 // OLDER RAMBLINGS:
