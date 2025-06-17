@@ -1791,7 +1791,14 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             exact = v[i].result;
             if (exact < 0) exact = 0x3fff;
             if (v[i].function_index) {
-                printf("F1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                int cursor_delta;
+                if (v[i].i < 0) {
+                    cursor_delta = -1;
+                } else {
+                    cursor_delta = v[i].size - v[v[i].i].size;
+                }
+                printf("F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                       v[i].function_index, exact, v[i].i, cursor_delta);
                 // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
                 //
                 // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
@@ -1816,7 +1823,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                 // helper.  E.g.
 #ifdef NOTTHIS
     among_var = find_among(z, a_6);
-    while ((among_var & 0xC000) == 0x4000) { // or if () if no chaining
+    while ((among_var & 0xC000) == 0x8000) { // or if () if no chaining
         int c = z->c;
         switch (among_var & 0x3fff) { // Or can use smallest all-1 mask that works.
             // Need a case for each unique (routine, cursor_adjustment, result) tuple
@@ -1862,13 +1869,13 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                 //       <f-code> could be 0 or OFFSET_* or RESULT_* or e.g. FN_YZ
                 //
                 // exact = 0x400 | fn_entry_index;
+#if 0
                 int fn = SIZE(out);
                 int entry_len = 3;
                 if (CAPACITY(out) < SIZE(out) + entry_len) {
                     out = increase_capacity_b(out, entry_len);
                 }
                 SIZE(out) += entry_len;
-#if 0
                 out[fn] = v[i].function_index | (cursor_adj << 8);
                 out[fn + 1] = exact;
                 out[fn + 2] = 
@@ -1913,7 +1920,14 @@ static int generate_among_table_f(struct generator * g, struct among * x,
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
                     if (v[i].function_index) {
-                        printf("F2: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                        int cursor_delta;
+                        if (v[i].i < 0) {
+                            cursor_delta = -1;
+                        } else {
+                            cursor_delta = v[i].size - v[v[i].i].size;
+                        }
+                        printf("F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                               v[i].function_index, exact, v[i].i, cursor_delta);
                     }
                     if (exact < 0) exact = 0x3fff;
                     continue;
@@ -2041,7 +2055,14 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         if (v[i].size == prefix_len) {
             exact = v[i].result;
             if (v[i].function_index) {
-                printf("B1: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                int cursor_delta;
+                if (v[i].i < 0) {
+                    cursor_delta = -1;
+                } else {
+                    cursor_delta = v[i].size - v[v[i].i].size;
+                }
+                printf("B1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                       v[i].function_index, exact, v[i].i, cursor_delta);
             }
             if (exact < 0) exact = 0x3fff;
             continue;
@@ -2081,7 +2102,14 @@ static int generate_among_table_b(struct generator * g, struct among * x,
                 if (v[i].size == prefix_len) {
                     exact = v[i].result;
                     if (v[i].function_index) {
-                        printf("B2: fn #%d -> %d or index %d\n", v[i].function_index, exact, v[i].i);
+                        int cursor_delta;
+                        if (v[i].i < 0) {
+                            cursor_delta = -1;
+                        } else {
+                            cursor_delta = v[i].size - v[v[i].i].size;
+                        }
+                        printf("B2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                               v[i].function_index, exact, v[i].i, cursor_delta);
                     }
                     if (exact < 0) exact = 0x3fff;
                     continue;
