@@ -640,6 +640,7 @@ static struct node * new_string_command(struct analyser * a, int token) {
         name_to_node(a, p, 's');
     } else {
         error(a, e_string_omitted);
+        hold_token(a->tokeniser);
     }
     return p;
 }
@@ -1342,6 +1343,8 @@ static struct node * read_C(struct analyser * a) {
                     default:
                         error(a, e_unexpected_token);
                         hold_token(t);
+                        (void)read_AE(a, NULL, 0);
+                        get_token(a, c_ket);
                         break;
                 }
                 return n;
@@ -1407,7 +1410,7 @@ static struct node * read_C(struct analyser * a) {
              */
             p->name = q;
             p->AE = read_AE(a, q, 0);
-            if (p->AE->type == c_number) {
+            if (p->AE && p->AE->type == c_number) {
                 switch (p->type) {
                     case c_plusassign:
                     case c_minusassign:
@@ -1490,6 +1493,7 @@ static struct node * read_C(struct analyser * a) {
                 read_token(t);
                 if (t->token == c_minus) read_token(t);
                 if (!check_token(a, c_name)) {
+                    hold_token(t);
                     return p;
                 }
                 name_to_node(a, p, 'g');
@@ -1712,7 +1716,8 @@ static void read_backwardmode(struct analyser * a) {
 static void read_program_(struct analyser * a, int terminator) {
     struct tokeniser * t = a->tokeniser;
     while (true) {
-        switch (read_token(t)) {
+        int token = read_token(t);
+        switch (token) {
             case c_strings:     read_names(a, t_string); break;
             case c_booleans:    read_names(a, t_boolean); break;
             case c_integers:    read_names(a, t_integer); break;
@@ -1721,13 +1726,10 @@ static void read_program_(struct analyser * a, int terminator) {
             case c_groupings:   read_names(a, t_grouping); break;
             case c_define:      read_define(a); break;
             case c_backwardmode:read_backwardmode(a); break;
-            case c_ket:
-                if (terminator == c_ket) return;
-                /* fall through */
             default:
+                if (token == terminator) return;
                 error(a, e_unexpected_token); break;
             case -1:
-                if (terminator >= 0) omission_error(a, c_ket);
                 return;
         }
     }
