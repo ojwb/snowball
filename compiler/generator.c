@@ -1354,7 +1354,10 @@ static void generate_define(struct generator * g, struct node * p) {
     g->S[0] = q->type == t_routine ? "static" : "extern";
 
     writef(g, "~S0 int ~V(struct SN_env * z) {~N~+", p);
-    if (q->amongvar_needed) w(g, "~Mint among_var;~N");
+    // The among implementation we use for C requires among_var for any
+    // among with functions.
+    if (q->amongvar_needed || q->among_with_function)
+        w(g, "~Mint among_var;~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
     g->label_used = 0;
@@ -1485,8 +1488,13 @@ static void generate_substring(struct generator * g, struct node * p) {
 #endif
     }
 
-    if (x->amongvar_needed) {
+    if (x->amongvar_needed || x->function_count) {
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0, ~F);~N", p);
+        if (x->function_count) {
+            writef(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+", p);
+            writef(g, "~M/* FIXME: Implement! */~N", p);
+            writef(g, "~-~M}~N", p);
+        }
         if (!x->always_matches) {
             writef(g, "~Mif (!among_var) ~f~N", p);
         }

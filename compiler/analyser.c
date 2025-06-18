@@ -297,6 +297,8 @@ handle_as_name:
                     p->value_used = false;
                     p->initialised = false;
                     p->used_in_definition = false;
+                    p->amongvar_needed = false;
+                    p->among_with_function = false;
                     p->local_to = NULL;
                     p->grouping = NULL;
                     p->definition = NULL;
@@ -938,12 +940,17 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
         return p;
     }
 
+    if (x->function_count) {
+        if (a->current_routine) a->current_routine->among_with_function = true;
+    }
+
     if (x->command_count > 1 ||
         (x->command_count == 1 && x->nocommand_count > 0)) {
         /* We need to set among_var rather than just checking if find_among*()
          * returns zero or not.
          */
-        x->amongvar_needed = a->amongvar_needed = true;
+        x->amongvar_needed = true;
+        if (a->current_routine) a->current_routine->amongvar_needed = true;
     }
 
     x->substring = substring;
@@ -1617,7 +1624,9 @@ static void read_define_grouping(struct analyser * a, struct name * q) {
                 case c_literalstring:
                     p->b = alter_grouping(p->b, t->b, style, (a->encoding == ENC_UTF8));
                     break;
-                default: error(a, e_unexpected_token); return;
+                default:
+                    error(a, e_unexpected_token);
+                    goto label0; // FIXME: suppress e_empty_grouping?
             }
             switch (read_token(t)) {
                 case c_plus:
@@ -1633,7 +1642,7 @@ static void read_define_grouping(struct analyser * a, struct name * q) {
 
 static void read_define_routine(struct analyser * a, struct name * q) {
     struct node * p = new_node(a, c_define);
-    a->amongvar_needed = false;
+    a->current_routine = q;
     if (q) {
         check_name_type(a, q, 'R');
         if (q->definition != NULL) error(a, e_redefined);
@@ -1670,7 +1679,7 @@ static void read_define_routine(struct analyser * a, struct name * q) {
         error2(a, e_unresolved_substring, a->substring->line_number);
         a->substring = NULL;
     }
-    if (q) q->amongvar_needed = a->amongvar_needed;
+    a->current_routine = NULL;
 }
 
 static void read_define(struct analyser * a) {
@@ -2204,6 +2213,7 @@ extern struct analyser * create_analyser(struct tokeniser * t) {
     a->modifyable = true;
     for (int i = 0; i < t_size; i++) a->name_count[i] = 0;
     a->substring = NULL;
+    a->current_routine = NULL;
     a->int_limits_used = false;
     return a;
 }
