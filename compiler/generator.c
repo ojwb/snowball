@@ -1378,6 +1378,10 @@ static void generate_functionend(struct generator * g, struct node * p) {
     w(g, "~Mreturn 1;~N");
 }
 
+static int among_mode(struct among * x) {
+    return (x->substring ? x->substring : x->node)->mode;
+}
+
 static void generate_substring(struct generator * g, struct node * p) {
     write_comment(g, p);
 
@@ -1491,9 +1495,41 @@ static void generate_substring(struct generator * g, struct node * p) {
     if (x->amongvar_needed || x->function_count) {
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0, ~F);~N", p);
         if (x->function_count) {
-            writef(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+", p);
-            writef(g, "~M/* FIXME: Implement! */~N", p);
-            writef(g, "~-~M}~N", p);
+            // FIXME: 'if' not 'while' if no chaining...
+            w(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+");
+            w(g, "~Mint c = z->c;~N");
+            // FIXME: Or can use smallest all-1 mask that works.
+            w(g, "~Mswitch (among_var & 0x3fff) {~N~+");
+            int n_function_scenarios = 0;
+            for (int i = 0; i < n_function_scenarios; ++i) {
+                int cursor_adjustment = 1; // FIXME
+                int t_result = 42; // FIXME
+                int f_result = 42; // FIXME
+                g->I[0] = i;
+                g->I[1] = t_result;
+                g->I[2] = cursor_adjustment;
+                g->I[3] = f_result;
+                g->S[0] = (among_mode(x) == m_forward) ? "-" : "+";
+                w(g, "~Mcase ~I0: {~N");
+                w(g, "~Mint ret = r_VI();~N"); // FIXME: routine name
+                struct name * q = NULL; // FIXME set!
+                if (K_needed(g, q->definition)) {
+                    // Restore cursor if routine may have changed it.
+                    // FIXME only in >0 case below?
+                    w(g, "~Mz->c = c;~N");
+                }
+                // ret > 0: function signalled t.
+                w(g, "~Mif (ret > 0) { among_var = ~I1; break; }~N");
+                // ret < 0: e.g. slice_check failed in routine.
+                w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
+                // ret == 0: function signalled f.
+                w(g, "~Mz->c = c ~S0 ~I2;~N");
+                w(g, "~Mamong_var = ~I3;~N");
+            }
+            w(g, "~-~M}~N");
+            w(g, "~-~M}~N");
+            // Note: In general may have the same function called by more
+            // than one case to handle different results.
         }
         if (!x->always_matches) {
             writef(g, "~Mif (!among_var) ~f~N", p);
@@ -1774,6 +1810,10 @@ static void generate_routine_headers(struct generator * g) {
 // entries but which are very sparse by binary chop?  E.g. 3 items needs
 // at most 2 compares (and 5/3 on average).  That would require storing
 // the byte for the non-extreme value somewhere though.
+//
+// Or support two ranges - when the range is sparse, it's usually due to
+// one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
+// accented versions).
 static int generate_among_table_f(struct generator * g, struct among * x,
                                   symbol ** prefix_ptr, symbol * out) {
 #if 0
@@ -2270,7 +2310,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
 
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
-    if ((x->substring ? x->substring : x->node)->mode == m_forward) {
+    if (among_mode(x) == m_forward) {
         generate_among_table_f(g, x, &xfix, b);
     } else {
         generate_among_table_b(g, x, &xfix, b);
