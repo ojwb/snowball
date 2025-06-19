@@ -160,9 +160,13 @@ struct tokeniser {
     // Used for c_name names.
     byte * s;
     int number;
+    // String escape start character or -1.
     int m_start;
+    // String escape end character.
     int m_end;
+    // Link list of stringdefs.
     struct m_pair * m_pairs;
+    // Nesting depth of get directives.
     int get_depth;
     int error_count;
     int token;
@@ -171,7 +175,6 @@ struct tokeniser {
     byte token_reported_as_unexpected;
     enc encoding;
 
-    int omission;
     struct include * includes;
 
     /* Mode in which U+ has been used:
