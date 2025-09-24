@@ -1342,7 +1342,6 @@ static void generate_literalstring(struct generator * g, struct node * p) {
 
 static void generate_define(struct generator * g, struct node * p) {
     struct name * q = p->name;
-    if (q->type == t_routine && !q->used) return;
 
     write_newline(g);
     write_comment(g, p);
@@ -1686,6 +1685,12 @@ void write_start_comment(struct generator * g,
 }
 
 static void generate_head(struct generator * g) {
+    if (g->analyser->int_limits_used) {
+        w(g, "#include <limits.h>~N");
+    }
+    if (g->analyser->debug_used) {
+        w(g, "#define SNOWBALL_DEBUG_COMMAND_USED~N");
+    }
     w(g, "#include \"");
     if (g->options->runtime_path) {
         write_string(g, g->options->runtime_path);
@@ -1819,8 +1824,7 @@ static void generate_groupings(struct generator * g) {
     struct str * s = g->outbuf;
     g->outbuf = g->declarations;
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
-        if (q->name->used)
-            generate_grouping_table(g, q);
+        generate_grouping_table(g, q);
     }
     g->outbuf = s;
 }
@@ -1904,9 +1908,6 @@ extern void generate_program_c(struct generator * g) {
     g->outbuf = str_new();
     g->failure_str = str_new();
     write_start_comment(g, "/* ", " */");
-    if (g->analyser->int_limits_used) {
-        w(g, "#include <limits.h>~N");
-    }
     generate_head(g);
     generate_routine_headers(g);
     w(g, "#ifdef __cplusplus~N"
