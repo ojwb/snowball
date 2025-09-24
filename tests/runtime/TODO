@@ -1,0 +1,49 @@
+===================================
+Not exercised by current algorithms
+===================================
+
+DONE minint
+
+DONE maxint
+
+DONE size
+
+DONE lenof
+
+$stringvar
+
+= 'foo'
+
+reverse
+
+external calling external
+
+AE: *
+
+DONE AE: /
+
+AE: *=
+
+DONE AE: /=
+
+AE: unary - (?)
+
+i_test_op: ==
+
+======
+Legacy
+======
+
+=>
+
+hex
+
+decimal
+
+among starter
+
+=================
+Lightly exercised
+=================
+
+-> stringvar
