@@ -98,7 +98,6 @@ endif
 tarball_ext = .tar.gz
 
 ALGORITHMS ?= algorithms
-
 MODULES ?= libstemmer/modules.txt
 
 # algorithms.mk is generated from the file $(MODULES) and defines:
