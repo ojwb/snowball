@@ -9,6 +9,8 @@
 #define DEFAULT_JAVA_AMONG_CLASS "org.tartarus.snowball.Among"
 #define DEFAULT_JAVA_STRING_CLASS "java.lang.StringBuilder"
 
+#define DEFAULT_DART_BASE_CLASS "SnowballProgram"
+
 #define DEFAULT_GO_PACKAGE "snowball"
 #define DEFAULT_GO_SNOWBALL_RUNTIME "github.com/snowballstem/snowball/go"
 
@@ -35,31 +37,17 @@ static void print_arglist(int exit_code) {
                "  -o, -output OUTPUT_BASE\n"
                "  -s, -syntax                      show syntax tree and stop\n"
                "  -comments                        generate comments\n"
-#ifndef DISABLE_JAVA
-               "  -j, -java                        generate Java\n"
-#endif
-#ifndef DISABLE_CSHARP
-               "  -cs, -csharp                     generate C#\n"
-#endif
-               "  -c++                             generate C++\n"
-#ifndef DISABLE_PASCAL
-               "  -pascal                          generate Pascal\n"
-#endif
-#ifndef DISABLE_PYTHON
-               "  -py, -python                     generate Python\n"
-#endif
-#ifndef DISABLE_JS
-               "  -js                              generate Javascript\n"
-#endif
-#ifndef DISABLE_RUST
-               "  -rust                            generate Rust\n"
-#endif
-#ifndef DISABLE_GO
-               "  -go                              generate Go\n"
-#endif
-#ifndef DISABLE_ADA
                "  -ada                             generate Ada\n"
-#endif
+               "  -c++                             generate C++\n"
+               "  -cs, -csharp                     generate C#\n"
+               "  -dart                            generate Dart\n"
+               "  -go                              generate Go\n"
+               "  -j, -java                        generate Java\n"
+               "  -js                              generate Javascript\n"
+               "  -pascal                          generate Pascal\n"
+               "  -php                             generate PHP\n"
+               "  -py, -python                     generate Python\n"
+               "  -rust                            generate Rust\n"
                "  -w, -widechars\n"
                "  -u, -utf8\n"
                "  -n, -name CLASS_NAME\n"
@@ -68,15 +56,11 @@ static void print_arglist(int exit_code) {
                "  -i, -include DIRECTORY\n"
                "  -r, -runtime DIRECTORY\n"
                "  -p, -parentclassname CLASS_NAME  fully qualified parent class name\n"
-#if !defined(DISABLE_JAVA) || !defined(DISABLE_CSHARP)
                "  -P, -Package PACKAGE_NAME        package name for stemmers\n"
                "  -S, -Stringclass STRING_CLASS    StringBuffer-compatible class\n"
                "  -a, -amongclass AMONG_CLASS      fully qualified name of the Among class\n"
-#endif
-#ifndef DISABLE_GO
                "  -gop, -gopackage PACKAGE_NAME    Go package name for stemmers\n"
                "  -gor, -goruntime PACKAGE_NAME    Go snowball runtime package\n"
-#endif
                "  --help                           display this help and exit\n"
                "  --version                        output version information and exit\n"
            );
@@ -123,7 +107,7 @@ static int read_options(struct options * o, int argc, char * argv[]) {
     o->package = NULL;
     o->go_snowball_runtime = DEFAULT_GO_SNOWBALL_RUNTIME;
     o->name = NULL;
-    o->make_lang = LANG_C;
+    o->target_lang = LANG_C;
     o->includes = NULL;
     o->includes_end = NULL;
     o->encoding = ENC_SINGLEBYTE;
@@ -158,58 +142,50 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                 o->name = new_name;
                 continue;
             }
-#ifndef DISABLE_JS
             if (eq(s, "-js")) {
-                o->make_lang = LANG_JAVASCRIPT;
+                o->target_lang = LANG_JAVASCRIPT;
                 continue;
             }
-#endif
-#ifndef DISABLE_RUST
+            if (eq(s, "-php")) {
+                o->target_lang = LANG_PHP;
+                continue;
+            }
             if (eq(s, "-rust")) {
-                o->make_lang = LANG_RUST;
+                o->target_lang = LANG_RUST;
                 continue;
             }
-#endif
-#ifndef DISABLE_GO
             if (eq(s, "-go")) {
-                o->make_lang = LANG_GO;
+                o->target_lang = LANG_GO;
                 continue;
             }
-#endif
-#ifndef DISABLE_JAVA
             if (eq(s, "-j") || eq(s, "-java")) {
-                o->make_lang = LANG_JAVA;
+                o->target_lang = LANG_JAVA;
                 continue;
             }
-#endif
-#ifndef DISABLE_CSHARP
+            if (eq(s, "-dart")) {
+                o->target_lang = LANG_DART;
+                continue;
+            }
             if (eq(s, "-cs") || eq(s, "-csharp")) {
-                o->make_lang = LANG_CSHARP;
+                o->target_lang = LANG_CSHARP;
                 continue;
             }
-#endif
             if (eq(s, "-c++")) {
-                o->make_lang = LANG_CPLUSPLUS;
+                o->target_lang = LANG_CPLUSPLUS;
                 continue;
             }
-#ifndef DISABLE_PASCAL
             if (eq(s, "-pascal")) {
-                o->make_lang = LANG_PASCAL;
+                o->target_lang = LANG_PASCAL;
                 continue;
             }
-#endif
-#ifndef DISABLE_PYTHON
             if (eq(s, "-py") || eq(s, "-python")) {
-                o->make_lang = LANG_PYTHON;
+                o->target_lang = LANG_PYTHON;
                 continue;
             }
-#endif
-#ifndef DISABLE_ADA
             if (eq(s, "-ada")) {
-                o->make_lang = LANG_ADA;
+                o->target_lang = LANG_ADA;
                 continue;
             }
-#endif
             if (eq(s, "-w") || eq(s, "-widechars")) {
                 encoding_opt = s;
                 o->encoding = ENC_WIDECHARS;
@@ -266,7 +242,6 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                 o->parent_class_name = argv[i++];
                 continue;
             }
-#if !defined(DISABLE_JAVA) || !defined(DISABLE_CSHARP)
             if (eq(s, "-P") || eq(s, "-Package")) {
                 check_lim(i, argc);
                 o->package = argv[i++];
@@ -282,8 +257,6 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                 o->among_class = argv[i++];
                 continue;
             }
-#endif
-#ifndef DISABLE_GO
             if (eq(s, "-gop") || eq(s, "-gopackage")) {
                 check_lim(i, argc);
                 o->package = argv[i++];
@@ -294,7 +267,6 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                 o->go_snowball_runtime = argv[i++];
                 continue;
             }
-#endif
             if (eq(s, "--help")) {
                 print_arglist(0);
             }
@@ -315,7 +287,7 @@ static int read_options(struct options * o, int argc, char * argv[]) {
     argv[new_argc] = NULL;
 
     /* Set language-dependent defaults. */
-    switch (o->make_lang) {
+    switch (o->target_lang) {
         case LANG_C:
         case LANG_CPLUSPLUS:
             encoding_opt = NULL;
@@ -352,10 +324,18 @@ static int read_options(struct options * o, int argc, char * argv[]) {
             if (!o->package)
                 o->package = DEFAULT_JAVA_PACKAGE;
             break;
+        case LANG_DART:
+            o->encoding = ENC_WIDECHARS;
+            if (!o->parent_class_name)
+                o->parent_class_name = DEFAULT_DART_BASE_CLASS;
+            break;
         case LANG_JAVASCRIPT:
             o->encoding = ENC_WIDECHARS;
             if (!o->parent_class_name)
                 o->parent_class_name = DEFAULT_JS_BASE_CLASS;
+            break;
+        case LANG_PHP:
+            o->encoding = ENC_UTF8;
             break;
         case LANG_PYTHON:
             o->encoding = ENC_WIDECHARS;
@@ -374,7 +354,7 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                 encoding_opt);
     }
 
-    if (o->make_lang != LANG_C && o->make_lang != LANG_CPLUSPLUS) {
+    if (o->target_lang != LANG_C && o->target_lang != LANG_CPLUSPLUS) {
         if (o->runtime_path) {
             fprintf(stderr, "warning: -r/-runtime only meaningful for C and C++\n");
         }
@@ -405,7 +385,7 @@ static int read_options(struct options * o, int argc, char * argv[]) {
 
         {
             char * new_name = MALLOC(len + 1);
-            switch (o->make_lang) {
+            switch (o->target_lang) {
                 case LANG_CSHARP:
                 case LANG_PASCAL:
                     /* Upper case initial letter. */
@@ -413,6 +393,7 @@ static int read_options(struct options * o, int argc, char * argv[]) {
                     new_name[0] = toupper(new_name[0]);
                     break;
                 case LANG_JAVASCRIPT:
+                case LANG_PHP:
                 case LANG_PYTHON: {
                     /* Upper case initial letter and change each
                      * underscore+letter or hyphen+letter to an upper case
@@ -499,105 +480,125 @@ extern int main(int argc, char * argv[]) {
                     print_arglist(1);
                 }
                 g = create_generator(a, o);
-                if (o->make_lang == LANG_C || o->make_lang == LANG_CPLUSPLUS) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".h");
-                    o->output_h = get_output(s);
-                    s[SIZE(s) - 1] = 'c';
-                    if (o->make_lang == LANG_CPLUSPLUS) {
-                        s = add_char_to_s(s, 'c');
+                switch (o->target_lang) {
+                    case LANG_C:
+                    case LANG_CPLUSPLUS: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".h");
+                        o->output_h = get_output(s);
+                        s[SIZE(s) - 1] = 'c';
+                        if (o->target_lang == LANG_CPLUSPLUS) {
+                            s = add_char_to_s(s, 'c');
+                        }
+                        o->output_src = get_output(s);
+                        lose_s(s);
+
+                        generate_program_c(g);
+                        fclose(o->output_src);
+                        fclose(o->output_h);
+                        break;
                     }
-                    o->output_src = get_output(s);
-                    lose_s(s);
+#ifndef TARGET_C_ONLY
+                    case LANG_ADA: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".ads");
+                        o->output_h = get_output(s);
+                        s[SIZE(s) - 1] = 'b';
+                        o->output_src = get_output(s);
+                        lose_s(s);
 
-                    generate_program_c(g);
-                    fclose(o->output_src);
-                    fclose(o->output_h);
-                }
-#ifndef DISABLE_JAVA
-                if (o->make_lang == LANG_JAVA) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".java");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_java(g);
-                    fclose(o->output_src);
-                }
+                        generate_program_ada(g);
+                        fclose(o->output_src);
+                        fclose(o->output_h);
+                        break;
+                    }
+                    case LANG_CSHARP: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".cs");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_csharp(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_DART: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".dart");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_dart(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_GO: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".go");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_go(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_JAVA: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".java");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_java(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_JAVASCRIPT: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".js");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_js(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_PASCAL: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".pas");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_pascal(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_PHP: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".php");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_php(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_PYTHON: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".py");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_python(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+                    case LANG_RUST: {
+                        byte * s = add_sz_to_s(NULL, output_base);
+                        s = add_literal_to_s(s, ".rs");
+                        o->output_src = get_output(s);
+                        lose_s(s);
+                        generate_program_rust(g);
+                        fclose(o->output_src);
+                        break;
+                    }
+#else
+                    default:
+                        fprintf(stderr, "Support for requested target language not enabled\n");
+                        exit(1);
 #endif
-#ifndef DISABLE_PASCAL
-                if (o->make_lang == LANG_PASCAL) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".pas");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_pascal(g);
-                    fclose(o->output_src);
                 }
-#endif
-#ifndef DISABLE_PYTHON
-                if (o->make_lang == LANG_PYTHON) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".py");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_python(g);
-                    fclose(o->output_src);
-                }
-#endif
-#ifndef DISABLE_JS
-                if (o->make_lang == LANG_JAVASCRIPT) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".js");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_js(g);
-                    fclose(o->output_src);
-                }
-#endif
-#ifndef DISABLE_CSHARP
-                if (o->make_lang == LANG_CSHARP) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".cs");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_csharp(g);
-                    fclose(o->output_src);
-                }
-#endif
-#ifndef DISABLE_RUST
-                if (o->make_lang == LANG_RUST) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".rs");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_rust(g);
-                    fclose(o->output_src);
-                }
-#endif
-#ifndef DISABLE_GO
-                if (o->make_lang == LANG_GO) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".go");
-                    o->output_src = get_output(s);
-                    lose_s(s);
-                    generate_program_go(g);
-                    fclose(o->output_src);
-                }
-#endif
-#ifndef DISABLE_ADA
-                if (o->make_lang == LANG_ADA) {
-                    byte * s = add_sz_to_s(NULL, output_base);
-                    s = add_literal_to_s(s, ".ads");
-                    o->output_h = get_output(s);
-                    s[SIZE(s) - 1] = 'b';
-                    o->output_src = get_output(s);
-                    lose_s(s);
-
-                    generate_program_ada(g);
-                    fclose(o->output_src);
-                    fclose(o->output_h);
-                }
-#endif
                 close_generator(g);
             }
             close_tokeniser(t);

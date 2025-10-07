@@ -40,7 +40,7 @@ static void write_varref(struct generator * g, struct name * p) {
 }
 
 static void write_literal_string(struct generator * g, symbol * p) {
-    write_string(g, "\"");
+    write_char(g, '"');
     for (int i = 0; i < SIZE(p); i++) {
         int ch = p[i];
         if (32 <= ch && ch < 0x590 && ch != 127) {
@@ -55,7 +55,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
             write_hex4(g, ch);
         }
     }
-    write_string(g, "\"");
+    write_char(g, '"');
 }
 
 static void write_margin(struct generator * g) {
@@ -66,7 +66,7 @@ static void write_comment(struct generator * g, struct node * p) {
     if (!g->options->comments) return;
     write_margin(g);
     write_string(g, "// ");
-    write_comment_content(g, p);
+    write_comment_content(g, p, NULL);
     write_newline(g);
 }
 
@@ -899,23 +899,51 @@ static void generate_setlimit(struct generator * g, struct node * p) {
 static void generate_dollar(struct generator * g, struct node * p) {
     write_comment(g, p);
 
-    struct str * savevar = vars_newname(g);
+    int used = g->label_used;
+    int a0 = g->failure_label;
+    struct str * a1 = str_copy(g->failure_str);
+    g->failure_label = new_label(g);
+    g->label_used = 0;
+    str_clear(g->failure_str);
 
-    str_assign(g->failure_str, "copy_from(");
-    str_append(g->failure_str, savevar);
-    str_append_string(g->failure_str, ");");
+    struct str * savevar = vars_newname(g);
     g->B[0] = str_data(savevar);
+
     writef(g, "~{~MEnv ~B0 = new Env(this);~N"
              "~Mcurrent = ~V;~N"
              "~Mcursor = 0;~N"
              "~Mlimit = current.Length;~N", p);
+    if (p->left->possible_signals == -1) {
+        /* Assume failure. */
+        w(g, "~Mbool ~B0_f = true;~N");
+    }
+
     generate(g, p->left);
 
-    write_margin(g);
-    write_str(g, g->failure_str);
-    write_newline(g);
+    if (p->left->possible_signals == -1) {
+        /* Mark success. */
+        g->B[0] = str_data(savevar);
+        w(g, "~M~B0_f = false;~N");
+    }
 
+    if (g->label_used)
+        wsetl(g, g->failure_label);
+
+    g->label_used = used;
+    g->failure_label = a0;
+    str_delete(g->failure_str);
+    g->failure_str = a1;
+
+    g->B[0] = str_data(savevar);
+    writef(g, "~Mcopy_from(~B0);~N", p);
+    if (p->left->possible_signals == 0) {
+        // p->left always signals f.
+        w(g, "~M~f~N");
+    } else if (p->left->possible_signals == -1) {
+        write_failure_if(g, "~B0_f", p);
+    }
     w(g, "~}");
+
     str_delete(savevar);
 }
 
@@ -1004,7 +1032,6 @@ static void generate_literalstring(struct generator * g, struct node * p) {
 
 static void generate_define(struct generator * g, struct node * p) {
     struct name * q = p->name;
-    if (q->type == t_routine && !q->used) return;
 
     write_newline(g);
     write_comment(g, p);
@@ -1012,7 +1039,11 @@ static void generate_define(struct generator * g, struct node * p) {
     if (q->type == t_routine) {
         g->S[0] = "private";
     } else {
-        g->S[0] = "protected override";
+        if (SIZE(q->s) == 4 && memcmp(q->s, "stem", 4) == 0) {
+            g->S[0] = "protected override";
+        } else {
+            g->S[0] = "protected";
+        }
     }
     writef(g, "~M~S0 bool ~V()~N~M{~+~N", p);
 
@@ -1320,8 +1351,7 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 
 static void generate_groupings(struct generator * g) {
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
-        if (q->name->used)
-            generate_grouping_table(g, q);
+        generate_grouping_table(g, q);
     }
 }
 

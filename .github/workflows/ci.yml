@@ -15,6 +15,10 @@ on:
     paths-ignore:
       - '*.rst'
       - NEWS
+  workflow_call:
+    inputs:
+      runtime-tests: # We reuse this workflow from runtime-tests.yml.
+        type: boolean
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -25,21 +29,25 @@ jobs:
       matrix:
         include:
         - name: "C distribution build"
-          CFLAGS_DIST_BUILD: '-O2 -Wall -W -std=c90 -Wmissing-prototypes -Wmissing-declarations -Wshadow -Wdeclaration-after-statement -Werror'
+          CFLAGS_DIST_BUILD: '-O2 -Wall -W -std=c90 -pedantic -Wmissing-prototypes -Wmissing-declarations -Wshadow -Werror'
         - name: "C distribution build (clang)"
-          CFLAGS_DIST_BUILD: '-O2 -Wall -W -std=c90 -Wmissing-prototypes -Wmissing-declarations -Wshadow -Wdeclaration-after-statement -Werror'
+          CFLAGS_DIST_BUILD: '-O2 -Wall -W -std=c90 -pedantic -Wmissing-prototypes -Wmissing-declarations -Wshadow -Werror'
           CC: clang
         - name: "C"
           c_tests: y
-          WERROR: '-std=c99 -Werror'
+          WERROR: '-std=c99 -pedantic -Werror'
         - name: "C (clang)"
           c_tests: y
-          WERROR: '-std=c99 -Werror'
+          WERROR: '-std=c99 -pedantic -Werror'
           CC: clang
         - name: java
           JAVA: java
           JAVAC: javac
           JAVACFLAGS: '-Xlint:all -Werror'
+        - name: dart
+          DART: dart
+          os: 'ubuntu-24.04'
+          dart_sdk: stable
         - name: go_old
           os: 'ubuntu-22.04'
           apt_packages: 'golang-1.13'
@@ -63,6 +71,13 @@ jobs:
         - name: Pascal
           FPC: fpc
           apt_packages: 'fpc'
+        - name: PHP 8.4
+          PHP: php
+          apt_packages: 'php php-mbstring'
+        - name: PHP 8.3
+          PHP: php
+          apt_extra_repo: ppa:ondrej/php
+          apt_packages: 'php8.3-cli php8.3-mbstring'
         - name: Python 3.8
           PYTHON_VERSION: 3.8
           os: 'ubuntu-22.04'
@@ -115,6 +130,7 @@ jobs:
         show-progress: false
 
     - name: Checkout data
+      if: ${{ ! inputs.runtime-tests }}
       run: |
         # Try to check out a branch of the same name from the snowball-data
         # repo sibling of this snowball repo, so that PRs requiring changes to
@@ -156,11 +172,21 @@ jobs:
             git clone "$UPSTREAM_REPO_URL"
           fi
         fi
+    - name: Hook up runtime testing
+      if: ${{ inputs.runtime-tests }}
+      run: |
+        make setup_runtime_tests
     - name: Install CCache
       uses: hendrikmuhs/ccache-action@v1
       with:
         key: ${{ matrix.name }}
         variant: ${{ matrix.ccache || 'ccache' }}
+    - name: Enable extra Ubuntu package repo
+      if: matrix.apt_extra_repo
+      run: |
+        sudo apt-get -qq remove "php*-cli" "php*-dev"
+        sudo add-apt-repository -y ${{ matrix.apt_extra_repo }}
+        sudo apt-get update
     - name: Install Ubuntu packages
       if: matrix.apt_packages
       run: |
@@ -170,6 +196,11 @@ jobs:
       if: ${{ startsWith(matrix.JSRUN, 'deno') }}
       with:
         deno-version: vx.x.x
+    - name: Install Dart SDK
+      if: matrix.dart_sdk
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: ${{ matrix.dart_sdk }}
     - name: Install mingw64 packages
       if: matrix.mingw64_packages
       uses: msys2/setup-msys2@v2
@@ -201,6 +232,9 @@ jobs:
     - name: Test Java
       if: matrix.JAVA && matrix.JAVAC
       run: $MAKE check_java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}" JAVACFLAGS="${{ matrix.JAVACFLAGS }}"
+    - name: Test Dart
+      if: matrix.DART
+      run: $MAKE check_dart DART="${{ matrix.DART }}"
     - name: Test C#
       if: matrix.MCS
       run: $MAKE check_csharp MCS="${{ matrix.MCS }}"
@@ -224,6 +258,9 @@ jobs:
     - name: Test Pascal
       if: matrix.FPC
       run: $MAKE check_pascal FPC="${{ matrix.FPC }}"
+    - name: Test PHP
+      if: matrix.PHP
+      run: $MAKE check_php PHP="${{ matrix.PHP }}"
     - name: Test Ada
       if: matrix.gprbuild
       run: $MAKE check_ada gprbuild="${{ matrix.gprbuild }}"

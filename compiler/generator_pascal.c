@@ -127,9 +127,8 @@ static void write_declare(struct generator * g,
 static void write_comment(struct generator * g, struct node * p) {
     if (!g->options->comments) return;
     write_margin(g);
-    write_string(g, "{ ");
-    write_comment_content(g, p);
-    write_string(g, " }");
+    write_string(g, "// ");
+    write_comment_content(g, p, NULL);
     write_newline(g);
 }
 
@@ -445,10 +444,9 @@ static void generate_not(struct generator * g, struct node * p) {
         write_savecursor(g, p, savevar);
     }
 
-    g->failure_label = new_label(g);
+    int label = new_label(g);
+    g->failure_label = label;
     str_clear(g->failure_str);
-
-    int l = g->failure_label;
 
     generate(g, p->left);
 
@@ -459,7 +457,7 @@ static void generate_not(struct generator * g, struct node * p) {
     if (!g->unreachable) write_failure(g);
 
     if (g->label_used)
-        wsetl(g, l);
+        wsetl(g, label);
 
     g->unreachable = false;
 
@@ -596,10 +594,8 @@ static void generate_GO(struct generator * g, struct node * p, int style) {
 
     int end_unreachable = false;
 
-    int golab = new_label(g);
-
     w(g, "~MWhile True Do~N");
-    w(g, "~{");
+    write_block_start(g);
 
     struct str * savevar = NULL;
     if (style == 1 || repeat_restore(g, p->left)) {
@@ -619,8 +615,7 @@ static void generate_GO(struct generator * g, struct node * p, int style) {
     } else {
         /* include for goto; omit for gopast */
         if (style == 1) write_restorecursor(g, p, savevar);
-        g->I[0] = golab;
-        w(g, "~Mgoto lab~I0;~N");
+        w(g, "~MBreak;~N");
     }
     g->unreachable = false;
     if (g->label_used)
@@ -629,6 +624,7 @@ static void generate_GO(struct generator * g, struct node * p, int style) {
         write_restorecursor(g, p, savevar);
         str_delete(savevar);
     }
+
     g->label_used = used;
     g->failure_label = a0;
     str_delete(g->failure_str);
@@ -636,9 +632,7 @@ static void generate_GO(struct generator * g, struct node * p, int style) {
 
     write_check_limit(g, p);
     write_inc_cursor(g, p);
-
-    g->I[0] = golab;
-    w(g, "~}lab~I0:~N");
+    write_block_end(g);
     g->unreachable = end_unreachable;
 }
 
@@ -662,7 +656,7 @@ static void generate_loop(struct generator * g, struct node * p) {
 static void generate_repeat_or_atleast(struct generator * g, struct node * p, struct str * loopvar) {
     int replab = new_label(g);
     g->I[0] = replab;
-    writef(g, "lab~I0:~N~MWhile True Do~N~{", p);
+    writef(g, "lab~I0:~N~{", p);
 
     struct str * savevar = NULL;
     if (repeat_restore(g, p->left)) {
@@ -671,6 +665,7 @@ static void generate_repeat_or_atleast(struct generator * g, struct node * p, st
     }
 
     g->failure_label = new_label(g);
+    g->label_used = 0;
     str_clear(g->failure_str);
     generate(g, p->left);
 
@@ -692,7 +687,7 @@ static void generate_repeat_or_atleast(struct generator * g, struct node * p, st
         str_delete(savevar);
     }
 
-    w(g, "~MBreak;~N~}");
+    w(g, "~}");
 }
 
 static void generate_repeat(struct generator * g, struct node * p) {
@@ -954,23 +949,15 @@ static void generate_setlimit(struct generator * g, struct node * p) {
 static void generate_dollar(struct generator * g, struct node * p) {
     write_comment(g, p);
 
+    int used = g->label_used;
+    int a0 = g->failure_label;
+    struct str * a1 = str_copy(g->failure_str);
+    g->failure_label = new_label(g);
+    g->label_used = 0;
+    str_clear(g->failure_str);
+
     struct str * savevar = vars_newname(g);
     g->B[0] = str_data(savevar);
-
-    {
-        struct str * saved_output = g->outbuf;
-        str_clear(g->failure_str);
-        g->outbuf = g->failure_str;
-        writef(g, "~V := FCurrent; "
-                  "FCurrent := ~B0_Current; "
-                  "FCursor := ~B0_Cursor; "
-                  "FLimit := ~B0_Limit; "
-                  "FBkLimit := ~B0_BkLimit; "
-                  "FBra := ~B0_Bra; "
-                  "FKet := ~B0_Ket;", p);
-        g->failure_str = g->outbuf;
-        g->outbuf = saved_output;
-    }
 
     write_declare(g, "~B0_Current : AnsiString", p);
     write_declare(g, "~B0_Cursor : Integer", p);
@@ -988,13 +975,45 @@ static void generate_dollar(struct generator * g, struct node * p) {
               "~MFCurrent := ~V;~N"
               "~MFCursor := 0;~N"
               "~MFLimit := Length(current);~N", p);
+    if (p->left->possible_signals == -1) {
+        /* Assume failure. */
+        write_declare(g, "~B0_F : Boolean", p);
+        w(g, "~M~B0_F := True;~N");
+    }
+
     generate(g, p->left);
-    if (!g->unreachable) {
-        write_margin(g);
-        write_str(g, g->failure_str);
-        write_newline(g);
+
+    if (!g->unreachable && p->left->possible_signals == -1) {
+        /* Mark success. */
+        g->B[0] = str_data(savevar);
+        w(g, "~M~B0_F := False;~N");
+    }
+
+    if (g->label_used)
+        wsetl(g, g->failure_label);
+
+    g->label_used = used;
+    g->failure_label = a0;
+    str_delete(g->failure_str);
+    g->failure_str = a1;
+
+    g->B[0] = str_data(savevar);
+    writef(g, "~M~V := FCurrent;~N"
+              "~MFCurrent := ~B0_Current;~N"
+              "~MFCursor := ~B0_Cursor;~N"
+              "~MFLimit := ~B0_Limit;~N"
+              "~MFBkLimit := ~B0_BkLimit;~N"
+              "~MFBra := ~B0_Bra;~N"
+              "~MFKet := ~B0_Ket;~N", p);
+
+    if (p->left->possible_signals == 0) {
+        // p->left always signals f.
+        w(g, "~M~f~N");
+    } else if (p->left->possible_signals == -1) {
+        write_failure_if(g, "~B0_F", p);
     }
     w(g, "~}");
+
     str_delete(savevar);
 }
 
@@ -1091,7 +1110,6 @@ static void generate_literalstring(struct generator * g, struct node * p) {
 
 static void generate_define(struct generator * g, struct node * p) {
     struct name * q = p->name;
-    if (q->type == t_routine && !q->used) return;
 
     write_newline(g);
     write_comment(g, p);
@@ -1330,7 +1348,7 @@ static void generate(struct generator * g, struct node * p) {
 
 /* Class declaration generation. */
 static void generate_unit_start(struct generator * g) {
-    write_start_comment(g, "{ ", " }");
+    write_start_comment(g, "// ", NULL);
     w(g, "Unit ~n;~N~N{$HINTS OFF}~N~NInterface~N~NUses " BASE_UNIT ";~N");
 }
 
@@ -1351,7 +1369,9 @@ static void generate_method_decl(struct generator * g, struct name * q) {
     write_varname(g, q);
     w(g, " : Boolean;");
     if (q->type == t_external) {
-        w(g, " Override;");
+        if (SIZE(q->s) == 4 && memcmp(q->s, "stem", 4) == 0) {
+            w(g, " Override;");
+        }
     }
     w(g, "~N");
 }
@@ -1514,8 +1534,7 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 
 static void generate_groupings(struct generator * g) {
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
-        if (q->name->used)
-            generate_grouping_table(g, q);
+        generate_grouping_table(g, q);
     }
 }
 

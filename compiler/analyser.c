@@ -131,6 +131,21 @@ static int check_token(struct analyser * a, int code) {
     return true;
 }
 
+static void hold_token_if_toplevel(struct tokeniser * t) {
+    // Hold token if it starts a top-level construct.
+    switch (t->token) {
+        case c_backwardmode:
+        case c_booleans:
+        case c_define:
+        case c_externals:
+        case c_groupings:
+        case c_integers:
+        case c_routines:
+        case c_strings:
+            hold_token(t);
+    }
+}
+
 static int get_token(struct analyser * a, int code) {
     struct tokeniser * t = a->tokeniser;
     read_token(t);
@@ -156,7 +171,8 @@ static struct name * find_name(struct analyser * a) {
     struct name * p = look_for_name(a);
     if (p == NULL) {
         report_error_location(a);
-        fprintf(stderr, "'%s' undeclared\n", a->tokeniser->s);
+        byte * s = a->tokeniser->s;
+        fprintf(stderr, "'%.*s' undeclared\n", SIZE(s), s);
     }
     return p;
 }
@@ -210,7 +226,7 @@ static void read_names(struct analyser * a, int type) {
 handle_as_name:
                 if (look_for_name(a) != NULL) {
                     report_error_location(a);
-                    fprintf(stderr, "'%s' re-declared\n", t->s);
+                    fprintf(stderr, "'%.*s' re-declared\n", SIZE(t->s), t->s);
                 } else {
                     NEW(name, p);
                     p->s = copy_s(t->s);
@@ -220,7 +236,6 @@ handle_as_name:
                      * variables whose values are never used. */
                     p->count = -1;
                     p->referenced = false;
-                    p->used_in_among = false;
                     p->used = NULL;
                     p->value_used = false;
                     p->initialised = false;
@@ -230,6 +245,7 @@ handle_as_name:
                     p->local_to = NULL;
                     p->grouping = NULL;
                     p->definition = NULL;
+                    p->used_in_among = 0;
                     p->among_index = 0;
                     p->declaration_line_number = t->line_number;
                     p->next = a->names;
@@ -661,6 +677,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
     x->used = false;
     x->shortest_size = INT_MAX;
     x->longest_size = 0;
+    x->in_routine = a->current_routine;
 
     if (q->type == c_bra) {
         starter = q;
@@ -671,7 +688,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
         if (q->type == c_literalstring) {
             symbol * b = q->literalstring;
             w1->b = b;           /* pointer to case string */
-            w1->action = NULL;   /* action gets filled in below */
+            w1->action = NULL;   /* action gets filled in later */
             w1->line_number = q->line_number;
             w1->size = SIZE(b);  /* number of characters in string */
             w1->i = -1;          /* index of longest substring */
@@ -679,7 +696,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
             if (q->left) {
                 struct name * function = q->left->name;
                 w1->function = function;
-                function->used_in_among = true;
+                ++function->used_in_among;
                 check_routine_mode(a, function, direction);
                 if (function->among_index == 0) {
                     function->among_index = ++x->function_count;
@@ -703,6 +720,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
              * the same action code if we find one.
              */
             int among_result = -1;
+            struct node * action = q;
             struct amongvec * w;
             for (w = v; w < w0; ++w) {
                 if (w->action && nodes_equivalent(w->action->left, q->left)) {
@@ -710,6 +728,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
                         printf("Among code %d isn't positive\n", w->result);
                         exit(1);
                     }
+                    action = w->action;
                     among_result = w->result;
                     break;
                 }
@@ -719,7 +738,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
             }
 
             while (w0 != w1) {
-                w0->action = q;
+                w0->action = action;
                 w0->result = among_result;
                 w0++;
             }
@@ -864,6 +883,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
             and_node->left->name = v[0].function;
             and_node->left->right = p;
             p = and_node;
+            --v[0].function->used_in_among;
         }
         FREE(x->commands);
         FREE(x);
@@ -873,15 +893,6 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
 
     if (x->function_count) {
         if (a->current_routine) a->current_routine->among_with_function = true;
-    }
-
-    if (x->command_count > 1 ||
-        (x->command_count == 1 && x->nocommand_count > 0)) {
-        /* We need to set among_var rather than just checking if find_among*()
-         * returns zero or not.
-         */
-        x->amongvar_needed = true;
-        if (a->current_routine) a->current_routine->amongvar_needed = true;
     }
 
     x->substring = substring;
@@ -1051,12 +1062,20 @@ static struct node * read_C(struct analyser * a) {
             return p;
         }
         case c_try:
-        case c_fail:
         case c_test:
         case c_do:
         case c_repeat: {
             struct node * p = new_node(a, token);
             p->left = read_C(a);
+            return p;
+        }
+        case c_fail: {
+            struct node * p = new_node(a, token);
+            p->left = read_C(a);
+            if (!p->left || is_just_true(p->left)) {
+                p->type = c_false;
+                p->left = NULL;
+            }
             return p;
         }
         case c_goto:
@@ -1192,7 +1211,9 @@ static struct node * read_C(struct analyser * a) {
         case c_rightslice:
         case c_true:
         case c_false:
+            return new_node(a, token);
         case c_debug:
+            a->debug_used = true;
             return new_node(a, token);
         case c_assignto:
         case c_sliceto: {
@@ -1428,8 +1449,8 @@ static struct node * read_C(struct analyser * a) {
                             break;
                         case t_integer:
                             report_error_location(a);
-                            fprintf(stderr, "integer name '%s' misplaced\n",
-                                    t->s);
+                            fprintf(stderr, "integer name '%.*s' misplaced\n",
+                                    SIZE(t->s), t->s);
                             break;
                         case t_string:
                             q->value_used = true;
@@ -1458,8 +1479,17 @@ static struct node * read_C(struct analyser * a) {
                 name_to_node(a, p, t_grouping);
                 return p;
             }
-        case c_literalstring:
-            return read_literalstring(a);
+        case c_literalstring: {
+            struct node * p = read_literalstring(a);
+            if (SIZE(p->literalstring) == 0) {
+                fprintf(stderr,
+                        "%s:%d: warning: empty literal string is a no-op\n",
+                        t->file, p->line_number);
+                p->type = c_true;
+                p->literalstring = NULL;
+            }
+            return p;
+        }
         case c_among: return read_among(a);
         case c_substring: return read_substring(a);
         default:
@@ -1544,8 +1574,8 @@ static void read_define_grouping(struct analyser * a, struct name * q) {
         if (q) {
             if (q->grouping != NULL) {
                 report_error_location(a);
-                fprintf(stderr, "'%s' redefined\n", t->s);
-                FREE(q->grouping);
+                fprintf(stderr, "'%.*s' redefined\n", SIZE(t->s), t->s);
+                q->grouping->name = NULL;
             }
             q->grouping = p;
         }
@@ -1579,7 +1609,7 @@ static void read_define_grouping(struct analyser * a, struct name * q) {
                     break;
                 default:
                     unexpected_token_error(a, "grouping definition");
-                    hold_token(t);
+                    hold_token_if_toplevel(t);
                     // Don't report an error for an empty grouping as well.
                     (void)finalise_grouping(p);
                     return;
@@ -1627,7 +1657,7 @@ static void read_define_routine(struct analyser * a, struct name * q) {
     a->program_end = p;
     get_token(a, c_as);
     p->left = read_C(a);
-    if (q) q->definition = p->left;
+    if (q) q->definition = p;
     /* We should get a node with a NULL right pointer from read_C() for the
      * routine's code.  We synthesise a "functionend" node there so
      * optimisations such as dead code elimination and tail call optimisation
@@ -1849,6 +1879,7 @@ static int check_possible_signals(struct analyser * a, struct node * p) {
         }
         case c_atleast:
         case c_backwards:
+        case c_dollar:
         case c_loop:
         case c_reverse:
         case c_test:
@@ -2009,12 +2040,13 @@ static void visit_routine(struct analyser * a, struct name * n) {
     // Recursive functions are valid in the Snowball language, but aren't
     // actually used in typical snowball programs so we take a simple
     // approach and handle them by setting pessimistic assumptions here which
-    // will be used if a function calls itself (directly or indirectly).  These
-    // will get overwritten by visit_node() for non-recursive cases.
-
+    // will be used if a function calls itself (directly or indirectly).
     p->possible_signals = -1; // Assume it could signal t or f.
 
-    visit_node(a, p);
+    visit_node(a, p->left);
+
+    // Update with calculated value.
+    p->possible_signals = p->left->possible_signals;
 }
 
 extern void read_program(struct analyser * a) {
@@ -2048,13 +2080,18 @@ extern void read_program(struct analyser * a) {
 
     for (struct name * n = a->names; n; n = n->next) {
         if (n->type == t_external) {
+            if (!n->used) {
+                // Externals can be called from outside of Snowball, so if they
+                // aren't already marked as used we set the `used` field to
+                // point to the definition so we can just check this field
+                // later.
+                n->used = n->definition;
+            }
             visit_routine(a, n);
         }
     }
 
-    struct name * q = a->names;
-    struct name ** ptr = &(a->names);
-    while (q) {
+    for (struct name * q = a->names; q; q = q->next) {
         if (!q->referenced) {
             fprintf(stderr, "%s:%d: warning: %s '%.*s' ",
                     a->tokeniser->file,
@@ -2068,8 +2105,7 @@ extern void read_program(struct analyser * a) {
             } else {
                 fprintf(stderr, "defined but not used\n");
             }
-            q = q->next;
-            *ptr = q;
+            q->used = NULL;
             continue;
         }
 
@@ -2089,8 +2125,6 @@ extern void read_program(struct analyser * a) {
                         line_num,
                         name_of_type(q->type),
                         SIZE(q->s), q->s);
-                q = q->next;
-                *ptr = q;
                 continue;
             }
         }
@@ -2109,8 +2143,7 @@ extern void read_program(struct analyser * a) {
                         name_of_type(q->type),
                         SIZE(q->s), q->s);
                 remove_dead_assignments(a->program, q);
-                q = q->next;
-                *ptr = q;
+                q->used = NULL;
                 continue;
             }
         }
@@ -2131,33 +2164,53 @@ extern void read_program(struct analyser * a) {
                         SIZE(q->s), q->s);
                 remove_unreachable_routine(a, q);
             }
-            if (q->type != t_grouping) {
-                struct name * old = q;
-                q = q->next;
-                *ptr = q;
-                FREE(old);
-                continue;
-            }
-            // Don't free the struct name for a grouping as it will be
-            // referenced from a struct grouping.
-            //
-            // Instead we just flag it as not used and no code will be
-            // generated for it.  We leave it in a->names to avoid leaking
-            // it.
-            q->used = false;
+            q->used = NULL;
         }
-
-        ptr = &(q->next);
-        q = q->next;
     }
 
-    /* Now we've eliminated variables whose values are never used and
-     * names which are unreachable we can number the names, which is
-     * used by some generators.
+    /* We've now identified variables whose values are never used and
+     * names which are unreachable, and cleared "used" for them, so go
+     * through and unlink the unused ones and number the others.  The
+     * numbers are used by the C generator.
      */
     int * name_count = a->name_count;
-    for (struct name * n = a->names; n; n = n->next) {
+    struct name * n = a->names;
+    struct name ** n_ptr = &(a->names);
+    while (n) {
+        if (!n->used) {
+            if (n->grouping) {
+                // Clear the name field then loop through and remove from
+                // the groupings list just below.
+                n->grouping->name = NULL;
+            } else if (n->definition) {
+                remove_unreachable_routine(a, n);
+            }
+            struct name * n_next = n->next;
+            lose_s(n->s);
+            FREE(n);
+            n = n_next;
+            *n_ptr = n;
+            continue;
+        }
         n->count = name_count[n->type]++;
+        n_ptr = &(n->next);
+        n = n->next;
+    }
+
+    // Remove groupings which aren't used.
+    struct grouping * g = a->groupings;
+    struct grouping ** g_ptr = &(a->groupings);
+    while (g) {
+        if (!g->name) {
+            struct grouping * g_next = g->next;
+            lose_b(g->b);
+            FREE(g);
+            g = g_next;
+            *g_ptr = g;
+            continue;
+        }
+        g_ptr = &(g->next);
+        g = g->next;
     }
 
     // Remove amongs which are in unreachable routines from the list
@@ -2174,6 +2227,58 @@ extern void read_program(struct analyser * a) {
 
             x->number = among_count++;
             if (x->function_count > 0) ++a->among_with_function_count;
+
+            for (int i = 1; i <= x->command_count; i++) {
+                int merge_with = 0;
+                struct node * command = x->commands[i - 1];
+                assert(command->type == c_bra);
+                if (!command->left || is_just_true(command->left)) {
+                    // Optimisation has turned this action into a no-op.
+                    command->left = NULL;
+                    merge_with = -1;
+                } else {
+                    for (int k = 1; k < i; ++k) {
+                        if (nodes_equivalent(command->left, x->commands[k - 1]->left)) {
+                            // Optimisation has made this action equivalent
+                            // to an earlier one.
+                            merge_with = k;
+                            break;
+                        }
+                    }
+                }
+                if (!merge_with) continue;
+
+                // Update references to this command index to be `merge_with`
+                // and subtract one from references to command indexes after
+                // this one.
+                for (int j = 0; j < x->literalstring_count; ++j) {
+                    int diff = (x->b[j].result - i);
+                    if (diff == 0) {
+                        x->b[j].result = merge_with;
+                        if (merge_with == 0) {
+                            assert(x->b[j].action->type == c_bra);
+                            x->b[j].action->left = NULL;
+                        }
+                    } else if (diff > 0) {
+                        --x->b[j].result;
+                    }
+                }
+                memmove(x->commands + (i - 1), x->commands + i,
+                        sizeof(x->commands[0]) * (x->command_count - i));
+                --x->command_count;
+                ++x->nocommand_count;
+                --i;
+            }
+
+            if (x->command_count > 1 ||
+                (x->command_count == 1 && x->nocommand_count > 0)) {
+                /* We need to set among_var rather than just checking if
+                 * find_among*() returns zero or not.
+                 */
+                x->amongvar_needed = true;
+                if (x->in_routine)
+                    x->in_routine->amongvar_needed = true;
+            }
 
             a_ptr = &(x->next);
         }
@@ -2196,6 +2301,7 @@ extern struct analyser * create_analyser(struct tokeniser * t) {
     a->substring = NULL;
     a->current_routine = NULL;
     a->int_limits_used = false;
+    a->debug_used = false;
     return a;
 }
 

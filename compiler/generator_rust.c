@@ -26,16 +26,8 @@ static struct str * vars_newname(struct generator * g) {
 /* Write routines for items from the syntax tree */
 
 static void write_varname(struct generator * g, struct name * p) {
-    switch (p->type) {
-        case t_external:
-            break;
-        default: {
-            int ch = "SbirxG"[p->type];
-            write_char(g, ch);
-            write_char(g, '_');
-            break;
-        }
-    }
+    write_char(g, "SbirrG"[p->type]);
+    write_char(g, '_');
     write_s(g, p->s);
 }
 
@@ -46,7 +38,7 @@ static void write_varref(struct generator * g, struct name * p) {
 
 static void write_literal_string(struct generator * g, symbol * p) {
     int i = 0;
-    write_string(g, "\"");
+    write_char(g, '"');
     while (i < SIZE(p)) {
         int ch;
         i += get_utf8(p + i, &ch);
@@ -62,7 +54,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
             write_string(g, "}");
         }
     }
-    write_string(g, "\"");
+    write_char(g, '"');
 }
 
 static void write_margin(struct generator * g) {
@@ -73,7 +65,7 @@ static void write_comment(struct generator * g, struct node * p) {
     if (!g->options->comments) return;
     write_margin(g);
     write_string(g, "// ");
-    write_comment_content(g, p);
+    write_comment_content(g, p, NULL);
     write_newline(g);
 }
 
@@ -214,6 +206,11 @@ static void writef(struct generator * g, const char * input, struct node * p) {
                 if (j < 0 || j > (int)(sizeof(g->I) / sizeof(g->I[0])))
                     goto invalid_escape2;
                 write_int(g, g->I[j]);
+                continue;
+            }
+            case 'E': {
+                // Write an external name.
+                write_s(g, p->name->s);
                 continue;
             }
             case 'V':
@@ -891,20 +888,49 @@ static void generate_setlimit(struct generator * g, struct node * p) {
 static void generate_dollar(struct generator * g, struct node * p) {
     write_comment(g, p);
 
+    int a0 = g->failure_label;
+    struct str * a1 = str_copy(g->failure_str);
+    g->failure_label = new_label(g);
+    str_clear(g->failure_str);
+
     struct str * savevar = vars_newname(g);
     g->B[0] = str_data(savevar);
     writef(g, "~Mlet ~B0 = env.clone();~N"
               "~Menv.set_current_s(~V.clone());~N"
               "~Menv.cursor = 0;~N"
               "~Menv.limit = env.current.len() as i32;~N", p);
-    generate(g, p->left);
-    if (!g->unreachable) {
-        g->B[0] = str_data(savevar);
-        /* Update string variable. */
-        writef(g, "~M~V = env.current.clone().into_owned();~N", p);
-        /* Reset env */
-        w(g, "~M*env = ~B0;~N");
+    if (p->left->possible_signals == -1) {
+        /* Assume failure. */
+        w(g, "~Mlet mut ~B0_f = true;~N");
     }
+
+    wsetlab_begin(g, g->failure_label);
+
+    generate(g, p->left);
+
+    if (!g->unreachable && p->left->possible_signals == -1) {
+        /* Mark success. */
+        g->B[0] = str_data(savevar);
+        w(g, "~M~B0_f = false;~N");
+    }
+
+    wsetlab_end(g, g->failure_label);
+
+    g->failure_label = a0;
+    str_delete(g->failure_str);
+    g->failure_str = a1;
+
+    g->B[0] = str_data(savevar);
+    /* Update string variable; restore env. */
+    writef(g, "~M~V = env.current.clone().into_owned();~N"
+              "~M*env = ~B0;~N", p);
+    if (p->left->possible_signals == 0) {
+        // p->left always signals f.
+        write_failure(g);
+    } else if (p->left->possible_signals == -1) {
+        write_failure_if(g, "~B0_f", p);
+    }
+
     str_delete(savevar);
 }
 
@@ -1014,7 +1040,6 @@ static void generate_setup_context(struct generator * g) {
 
 static void generate_define(struct generator * g, struct node * p) {
     struct name * q = p->name;
-    if (q->type == t_routine && !q->used) return;
 
     write_newline(g);
     write_comment(g, p);
@@ -1022,8 +1047,16 @@ static void generate_define(struct generator * g, struct node * p) {
     if (q->type == t_routine) {
         writef(g, "~Mfn ~W(env: &mut SnowballEnv, context: &mut Context) -> bool {~+~N", p);
     } else {
-        writef(g, "~Mpub fn ~W(env: &mut SnowballEnv) -> bool {~+~N", p);
+        writef(g, "~Mpub fn ~E(env: &mut SnowballEnv) -> bool {~+~N", p);
         generate_setup_context(g);
+        if (q->used != q->definition) {
+            // This external needs to be callable as a routine, so generate
+            // the actual code like a routine with an external which just
+            // forwards to that.
+            writef(g, "~Mreturn ~W(env, context);~N", p);
+            w(g, "~-~M}~N");
+            writef(g, "~Mfn ~W(env: &mut SnowballEnv, context: &mut Context) -> bool {~+~N", p);
+        }
     }
     if (q->amongvar_needed) w(g, "~Mlet mut among_var;~N");
 
@@ -1439,8 +1472,7 @@ static void generate_groupings(struct generator * g) {
     struct str * s = g->outbuf;
     g->outbuf = g->declarations;
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
-        if (q->name->used)
-            generate_grouping_table(g, q);
+        generate_grouping_table(g, q);
     }
     g->outbuf = s;
 }

@@ -208,13 +208,13 @@ struct name {
     byte type;                  /* t_string etc */
     byte mode;                  /* for routines, externals (m_forward, etc) */
     byte referenced;
-    byte used_in_among;         /* Function used in among? */
     byte value_used;            /* (For variables) is its value ever used? */
     byte initialised;           /* (For variables) is it ever initialised? */
     byte used_in_definition;    /* (grouping) used in grouping definition? */
     byte amongvar_needed;       /* for routines, externals */
     byte among_with_function;   /* for routines, externals */
-    struct node * definition;   /* for routines, externals */
+    struct node * definition;   /* (routines/externals) c_define node */
+    int used_in_among;          /* (routines/externals) Count of uses in amongs */
     // Initialised to -1; set to -2 if reachable from an external.
     // Reachable names are then numbered 0, 1, 2, ... with separate numbering
     // per type.
@@ -258,6 +258,7 @@ struct among {
     struct node * substring;  /* i.e. substring ... among ( ... ) */
     struct node ** commands;  /* array with command_count entries */
     struct node * node;       /* pointer to the node for this among */
+    struct name * in_routine; /* pointer to name for routine this among is in */
 };
 
 struct grouping {
@@ -333,6 +334,7 @@ struct analyser {
     struct name * current_routine; /* routine/external we're currently on. */
     enc encoding;
     byte int_limits_used;     /* are maxint or minint used? */
+    byte debug_used;          /* is the '?' command used? */
 };
 
 enum analyser_modes {
@@ -358,9 +360,7 @@ struct generator {
     struct str * outbuf;       /* temporary str to store output */
     struct str * declarations; /* str storing variable declarations */
     int next_label;
-#ifndef DISABLE_PYTHON
-    int max_label;
-#endif
+    int max_label;             /* Only used by Python */
     int margin;
 
     /* Target language code to execute in case of failure. */
@@ -381,6 +381,8 @@ struct generator {
     int keep_count;      /* used to number keep/restore pairs to avoid compiler warnings
                             about shadowed variables */
     int temporary_used;  /* track if temporary variable used (Ada and Pascal) */
+    char java_import_arrays; /* need `import java.util.Arrays;` */
+    char java_import_chararraysequence; /* need `import org.tartarus.snowball.CharArraySequence;` */
 };
 
 /* Special values for failure_label in struct generator. */
@@ -397,7 +399,20 @@ struct options {
     byte syntax_tree;
     byte comments;
     enc encoding;
-    enum { LANG_JAVA, LANG_C, LANG_CPLUSPLUS, LANG_CSHARP, LANG_PASCAL, LANG_PYTHON, LANG_JAVASCRIPT, LANG_RUST, LANG_GO, LANG_ADA } make_lang;
+    enum {
+        LANG_ADA,
+        LANG_C,
+        LANG_CPLUSPLUS,
+        LANG_CSHARP,
+        LANG_DART,
+        LANG_GO,
+        LANG_JAVA,
+        LANG_JAVASCRIPT,
+        LANG_PASCAL,
+        LANG_PHP,
+        LANG_PYTHON,
+        LANG_RUST
+    } target_lang;
     const char * externals_prefix;
     const char * variables_prefix;
     const char * runtime_path;
@@ -426,7 +441,8 @@ extern void write_s(struct generator * g, const byte * b);
 extern void write_str(struct generator * g, struct str * str);
 extern void write_c_relop(struct generator * g, int relop);
 
-extern void write_comment_content(struct generator * g, struct node * p);
+extern void write_comment_content(struct generator * g, struct node * p,
+                                  const char * end);
 extern void write_generated_comment_content(struct generator * g);
 extern void write_start_comment(struct generator * g,
                                 const char * comment_start,
@@ -438,37 +454,26 @@ extern int repeat_restore(struct generator * g, struct node * p);
 /* Generator for C code. */
 extern void generate_program_c(struct generator * g);
 
-#ifndef DISABLE_JAVA
 /* Generator for Java code. */
 extern void generate_program_java(struct generator * g);
-#endif
 
-#ifndef DISABLE_CSHARP
+/* Generator for Dart code. */
+extern void generate_program_dart(struct generator * g);
+
 /* Generator for C# code. */
 extern void generate_program_csharp(struct generator * g);
-#endif
 
-#ifndef DISABLE_PASCAL
 extern void generate_program_pascal(struct generator * g);
-#endif
 
-#ifndef DISABLE_PYTHON
+extern void generate_program_php(struct generator * g);
+
 /* Generator for Python code. */
 extern void generate_program_python(struct generator * g);
-#endif
 
-#ifndef DISABLE_JS
 extern void generate_program_js(struct generator * g);
-#endif
 
-#ifndef DISABLE_RUST
 extern void generate_program_rust(struct generator * g);
-#endif
 
-#ifndef DISABLE_GO
 extern void generate_program_go(struct generator * g);
-#endif
 
-#ifndef DISABLE_ADA
 extern void generate_program_ada(struct generator * g);
-#endif
