@@ -11,8 +11,12 @@ typedef unsigned short symbol;
 #define MALLOC check_malloc
 #define FREE check_free
 
-#define NEW(type, p) struct type * p = (struct type *) MALLOC(sizeof(struct type))
-#define NEWVEC(type, p, n) struct type * p = (struct type *) MALLOC(sizeof(struct type) * (n))
+// Declare variable `V` of type `struct TYPE *` and dynamically allocate it.
+// We exit on allocation failure so `V` is always non-NULL.
+#define NEW(TYPE, V) struct TYPE * V = (struct TYPE *) MALLOC(sizeof(struct TYPE))
+
+// Similar to NEW() but allocates an array of N objects of type `struct TYPE *`.
+#define NEWVEC(TYPE, V, N) struct TYPE * V = (struct TYPE *) MALLOC(sizeof(struct TYPE) * (N))
 
 #define SIZE(p)     ((int *)(p))[-1]
 #define CAPACITY(p) ((int *)(p))[-2]
@@ -63,7 +67,7 @@ extern void output_str(FILE * outfile, struct str * str);
 extern int get_utf8(const symbol * p, int * slot);
 extern int put_utf8(int ch, symbol * p);
 
-typedef enum { ENC_SINGLEBYTE, ENC_UTF8, ENC_WIDECHARS } enc;
+typedef enum { ENC_SINGLEBYTE = 0, ENC_UTF8, ENC_WIDECHARS } enc;
 
 /* stringdef name and value */
 struct m_pair {
@@ -138,7 +142,7 @@ enum token_codes {
 };
 
 enum uplus_modes {
-    UPLUS_NONE,
+    UPLUS_NONE = 0,
     UPLUS_DEFINED,
     UPLUS_UNICODE
 };
@@ -400,8 +404,8 @@ struct options {
     byte comments;
     enc encoding;
     enum {
+        LANG_C = 0, // We generate C by default.
         LANG_ADA,
-        LANG_C,
         LANG_CPLUSPLUS,
         LANG_CSHARP,
         LANG_DART,
