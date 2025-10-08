@@ -1919,7 +1919,7 @@ static void generate_routine_headers(struct generator * g) {
 // for both).
 //
 // FIXME: we could track a threshold to include in the limit check at each
-// point and avoid checking when the strng is too short for any remaining
+// point and avoid checking when the string is too short for any remaining
 // options.  This would be added in the first limit check and mean we would
 // not need the additional limit check in the substring case (because this
 // thereshold would be >= the segment size).  See min_length_match below.
