@@ -235,9 +235,7 @@ extern int eq_v_b(struct SN_env * z, const symbol * p) {
     return eq_s_b(z, SIZE(p), p);
 }
 
-extern int find_among(struct SN_env * z, const short * v,
-                      int (*call_among_func)(struct SN_env*)) {
-    (void)call_among_func; /* FIXME */
+extern int find_among(struct SN_env * z, const short * v) {
     int c = z->c;
     int l = z->l;
     int o = 0;
@@ -281,9 +279,7 @@ extern int find_among(struct SN_env * z, const short * v,
 }
 
 /* find_among_b is for backwards processing. Same comments apply */
-extern int find_among_b(struct SN_env * z, const short * v,
-                        int (*call_among_func)(struct SN_env*)) {
-    (void)call_among_func; /* FIXME */
+extern int find_among_b(struct SN_env * z, const short * v) {
     int c = z->c;
     int lb = z->lb;
     int o = 0;

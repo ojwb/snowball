@@ -421,32 +421,6 @@ static void writef(struct generator * g, const char * input, struct node * p) {
                 write_s(g, g->B[j]);
                 continue;
             }
-            case 'F': { // Among function dispatcher.
-                struct among * x = p->among;
-                if (x->function_count == 0) {
-                    write_char(g, '0');
-                    continue;
-                }
-
-                if (x->function_count == 1) {
-                    // Only one different function used in this among.
-                    struct amongvec * v = x->b;
-                    for (int j = 0; j < x->literalstring_count; j++) {
-                        if (v[j].function) {
-                            write_varref(g, v[j].function);
-                            goto continue_outer_loop;
-                        }
-                    }
-                    fprintf(stderr, "function_count == 1 but no among functions\n");
-                    exit(1);
-continue_outer_loop:
-                    continue;
-                }
-
-                w(g, "af_");
-                write_int(g, x->number);
-                continue;
-            }
             case 'I':
             case 'J':
             case 'c': {
@@ -1482,6 +1456,8 @@ static void generate_define(struct generator * g, struct node * p) {
     // among with functions.
     if (q->amongvar_needed || q->among_with_function)
         w(g, "~Mint among_var;~N");
+    if (q->among_with_function)
+        w(g, "~Mint c0;~N");
     str_clear(g->failure_str);
     g->failure_label = x_return;
     g->label_used = 0;
@@ -1510,6 +1486,7 @@ static void generate_substring(struct generator * g, struct node * p) {
     write_comment(g, p);
 
     struct among * x = p->among;
+    printf("generate_substring for among #%d\n", x->number);
     int block = -1;
     unsigned int bitmap = 0;
     struct amongvec * among_cases = x->b;
@@ -1617,35 +1594,57 @@ static void generate_substring(struct generator * g, struct node * p) {
     }
 
     if (x->amongvar_needed || x->function_count) {
-        writef(g, "~Mamong_var = find_among~S0(z, a_~I0, ~F);~N", p);
         if (x->function_count) {
-            // FIXME: 'if' not 'while' if no chaining...
-            w(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+");
+            writef(g, "~Mc0 = z->c;~N", p);
+        }
+        writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
+        if (x->function_count) {
+            // FIXME need to generate these scenarios, but the among tables
+            // are generated after the program code currently (and need to be
+            // because we can omit them.  Need to generate the info before
+            // the program but not write them out until after. FIXME
+            int n_function_scenarios = 0;
+            int among_function_chains = false;
+            for (int i = 0; i < n_function_scenarios; ++i) {
+                int t_result = 42; // FIXME
+                int f_result = 42; // FIXME
+                if ((t_result & 0xc000) == 0x8000 ||
+                    (f_result & 0xc000) == 0x8000) {
+                    among_function_chains = true;
+                    break;
+                }
+            }
+            if (among_function_chains) {
+                w(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+");
+            } else {
+                w(g, "~Mif ((among_var & 0xc000) == 0x8000) {~N~+");
+            }
             w(g, "~Mint c = z->c;~N");
             // FIXME: Or can use smallest all-1 mask that works.
             w(g, "~Mswitch (among_var & 0x3fff) {~N~+");
-            int n_function_scenarios = 0;
             for (int i = 0; i < n_function_scenarios; ++i) {
-                int cursor_adjustment = 1; // FIXME
+                int cursor_adjustment = 1; // FIXME length of string corresponding to f_result
                 int t_result = 42; // FIXME
                 int f_result = 42; // FIXME
+                struct name * q = NULL; // FIXME set!
                 g->I[0] = i;
                 g->I[1] = t_result;
                 g->I[2] = cursor_adjustment;
                 g->I[3] = f_result;
-                g->S[0] = (among_mode(x) == m_forward) ? "-" : "+";
+                g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 w(g, "~Mcase ~I0: {~N");
-                w(g, "~Mint ret = r_VI();~N"); // FIXME: routine name
-                struct name * q = NULL; // FIXME set!
+                w(g, "~Mint ret = ");
+                write_varref(g, q);
+                w(g, "();~N");
+                // ret > 0: function signalled t.
+                w(g, "~Mif (ret > 0) { ");
                 if (K_needed(g, q->definition)) {
                     // Restore cursor if routine may have changed it.
-                    // FIXME only in >0 case below?
-                    w(g, "~Mz->c = c;~N");
+                    w(g, "z->c = c; ");
                 }
-                // ret > 0: function signalled t.
-                w(g, "~Mif (ret > 0) { among_var = ~I1; break; }~N");
-                // ret < 0: e.g. slice_check failed in routine.
-                w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
+                w(g, "among_var = ~I1; break; }~N");
+            // ret < 0: e.g. slice_check failed in routine.  FIXME: Omit if impossible FIXME: We currently treat this like success...
+             //   w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
                 // ret == 0: function signalled f.
                 w(g, "~Mz->c = c ~S0 ~I2;~N");
                 w(g, "~Mamong_var = ~I3;~N");
@@ -1676,14 +1675,14 @@ static void generate_substring(struct generator * g, struct node * p) {
     }
 
     if (x->always_matches) {
-        writef(g, "~Mfind_among~S0(z, a_~I0, ~F);~N", p);
+        writef(g, "~Mfind_among~S0(z, a_~I0);~N", p);
     } else if (x->command_count == 0 &&
                g->failure_label == x_return &&
                x->node->right && x->node->right->type == c_functionend) {
-        writef(g, "~Mreturn find_among~S0(z, a_~I0, ~F) != 0;~N", p);
+        writef(g, "~Mreturn find_among~S0(z, a_~I0) != 0;~N", p);
         x->node->right = NULL;
     } else {
-        writef(g, "~Mif (!find_among~S0(z, a_~I0, ~F)) ~f~N", p);
+        writef(g, "~Mif (!find_among~S0(z, a_~I0)) ~f~N", p);
     }
 }
 
@@ -2386,6 +2385,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
 }
 
 static void generate_among_table(struct generator * g, struct among * x) {
+    printf("generate_among_table for among #%d\n", x->number);
     write_newline(g);
     write_comment(g, x->node);
 
@@ -2464,26 +2464,6 @@ static void generate_among_table(struct generator * g, struct among * x) {
     write_newline(g);
     w(g, "~-~M};~N");
     lose_b(b);
-
-    if (x->function_count <= 1) return;
-
-    w(g, "~N~Mstatic int af_~I0(struct SN_env * z) {~N~+");
-    w(g, "~Mswitch (z->af) {~N~+");
-    for (int n = 1; n <= x->function_count; n++) {
-        w(g, "~Mcase ");
-        write_int(g, n);
-        w(g, ": return ");
-        for (int i = 0; i < x->literalstring_count; i++) {
-            if (v[i].function_index == n) {
-                write_varref(g, v[i].function);
-                w(g, "(z);~N");
-                break;
-            }
-        }
-    }
-    w(g, "~-~M}~N");
-    w(g, "~Mreturn -1;~N");
-    w(g, "~-~M}~N");
 }
 
 static void generate_amongs(struct generator * g) {

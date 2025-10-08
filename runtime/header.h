@@ -29,20 +29,6 @@ static void debug(struct SN_env * z, int number, int line_count) {
 }
 #endif
 
-struct among
-{
-    /* Number of symbols in s. */
-    int s_size;
-    /* Search string. */
-    const symbol * s;
-    /* Delta of index to longest matching substring, or 0 if none. */
-    int substring_i;
-    /* Result of the lookup. */
-    int result;
-    /* Optional condition routine index, or 0 if none. */
-    int function;
-};
-
 extern symbol * create_s(void);
 extern void lose_s(symbol * p);
 
@@ -65,10 +51,8 @@ extern int eq_s_b(struct SN_env * z, int s_size, const symbol * s);
 extern int eq_v(struct SN_env * z, const symbol * p);
 extern int eq_v_b(struct SN_env * z, const symbol * p);
 
-extern int find_among(struct SN_env * z, const short * v,
-                      int (*)(struct SN_env *));
-extern int find_among_b(struct SN_env * z, const short * v,
-                        int (*)(struct SN_env *));
+extern int find_among(struct SN_env * z, const short * v);
+extern int find_among_b(struct SN_env * z, const short * v);
 
 extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s, int * adjustment);
 extern int slice_from_s(struct SN_env * z, int s_size, const symbol * s);
