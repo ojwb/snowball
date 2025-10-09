@@ -259,6 +259,7 @@ struct among {
     // Details of how to handle among functions.
     struct among_function_scenario * af;
     int af_count;             /* number of entries in af. */
+    symbol * among_table;     /* table used in C implementation. */
     int number;               /* amongs are numbered 0, 1, 2 ... */
     int literalstring_count;  /* in this among */
     int command_count;        /* in this among (excludes "no command" entries) */

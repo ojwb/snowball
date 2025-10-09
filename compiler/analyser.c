@@ -864,6 +864,8 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
             --v[0].function->used_in_among;
         }
         FREE(x->commands);
+        FREE(x->af);
+        lose_b(x->among_table);
         FREE(x);
         FREE(v);
         return p;

@@ -1486,7 +1486,6 @@ static void generate_substring(struct generator * g, struct node * p) {
     write_comment(g, p);
 
     struct among * x = p->among;
-    printf("generate_substring for among #%d\n", x->number);
     int block = -1;
     unsigned int bitmap = 0;
     struct amongvec * among_cases = x->b;
@@ -1599,10 +1598,6 @@ static void generate_substring(struct generator * g, struct node * p) {
         }
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
         if (x->function_count) {
-            // FIXME need to generate these scenarios, but the among tables
-            // are generated after the program code currently (and need to be
-            // because we can omit them.  Need to generate the info before
-            // the program but not write them out until after. FIXME
             int among_function_chains = false;
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
@@ -1942,10 +1937,10 @@ static void generate_routine_headers(struct generator * g) {
 // Or support two ranges - when the range is sparse, it's usually due to
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
 // accented versions).
-static int generate_among_table_f(struct generator * g, struct among * x,
-                                  symbol ** prefix_ptr, symbol * out) {
+static int build_among_table_f(struct generator * g, struct among * x,
+                               symbol ** prefix_ptr, symbol * out) {
 #if 0
-    printf("generate_among_table_f(g, x, \"");
+    printf("build_among_table_f(g, x, \"");
     for (int i = 0; i < SIZE(*prefix_ptr); ++i) {
         putchar((*prefix_ptr)[i]);
     }
@@ -2128,7 +2123,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
             assert(exact);
             out[offset + 2] = -exact;
         } else {
-            out[offset + 2] = generate_among_table_f(g, x, prefix_ptr, out);
+            out[offset + 2] = build_among_table_f(g, x, prefix_ptr, out);
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
@@ -2174,7 +2169,7 @@ static int generate_among_table_f(struct generator * g, struct among * x,
         if (ch == prev_ch)  continue;
         prev_ch = ch;
         *prefix_ptr = add_to_b(*prefix_ptr, &ch, 1);
-        out[offset + 2 + (ch - min)] = generate_among_table_f(g, x, prefix_ptr, out);
+        out[offset + 2 + (ch - min)] = build_among_table_f(g, x, prefix_ptr, out);
         SIZE(*prefix_ptr) = prefix_len;
         middle_used = middle_used || (ch > min && ch < max);
     }
@@ -2208,10 +2203,10 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
 }
 
 // FIXME: prefix is suffix here!  Rename to xfix?  Merge this with _f version?
-static int generate_among_table_b(struct generator * g, struct among * x,
-                                  symbol ** prefix_ptr, symbol * out) {
+static int build_among_table_b(struct generator * g, struct among * x,
+                               symbol ** prefix_ptr, symbol * out) {
 #if 0
-    printf("generate_among_table_b(g, x, \"");
+    printf("build_among_table_b(g, x, \"");
     for (int i = 0; i < SIZE(*prefix_ptr); ++i) {
         putchar((*prefix_ptr)[i]);
     }
@@ -2310,7 +2305,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
             assert(exact);
             out[offset + 2] = -exact;
         } else {
-            out[offset + 2] = generate_among_table_b(g, x, prefix_ptr, out);
+            out[offset + 2] = build_among_table_b(g, x, prefix_ptr, out);
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
@@ -2357,8 +2352,8 @@ static int generate_among_table_b(struct generator * g, struct among * x,
         if (ch == prev_ch)  continue;
         prev_ch = ch;
         *prefix_ptr = prefix_to_b(*prefix_ptr, &ch, 1);
-        out[offset + 2 + (ch - min)] = generate_among_table_b(g, x, prefix_ptr, out);
-        printf("+++ generate_among_table_b(prefix_len = %d) ch=%c -> ", SIZE(*prefix_ptr), ch);
+        out[offset + 2 + (ch - min)] = build_among_table_b(g, x, prefix_ptr, out);
+        printf("+++ build_among_table_b(prefix_len = %d) ch=%c -> ", SIZE(*prefix_ptr), ch);
         printf("%d\n", out[offset + 2 + (ch - min)]);
         memmove(*prefix_ptr, *prefix_ptr + SIZE(*prefix_ptr) - prefix_len, prefix_len * 2);
         SIZE(*prefix_ptr) = prefix_len;
@@ -2383,11 +2378,7 @@ static int generate_among_table_b(struct generator * g, struct among * x,
     return offset;
 }
 
-static void generate_among_table(struct generator * g, struct among * x) {
-    printf("generate_among_table for among #%d\n", x->number);
-    write_newline(g);
-    write_comment(g, x->node);
-
+static void build_among_table(struct generator * g, struct among * x) {
     // Idea for new approach to among:
     // consider (in backwards mode):
     //
@@ -2438,13 +2429,20 @@ static void generate_among_table(struct generator * g, struct among * x) {
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
     if (among_mode(x) == m_forward) {
-        generate_among_table_f(g, x, &xfix, b);
+        build_among_table_f(g, x, &xfix, b);
     } else {
-        generate_among_table_b(g, x, &xfix, b);
+        build_among_table_b(g, x, &xfix, b);
     }
     lose_b(xfix);
     printf("\n");
 
+    x->among_table = b;
+}
+
+static void generate_among_table(struct generator * g, struct among * x) {
+    write_newline(g);
+    write_comment(g, x->node);
+    symbol * b = x->among_table;
     g->I[0] = x->number;
     w(g, "~Mstatic const short a_~I0[] = {~N~+");
     write_margin(g);
@@ -2460,7 +2458,6 @@ static void generate_among_table(struct generator * g, struct among * x) {
     }
     write_newline(g);
     w(g, "~-~M};~N");
-    lose_b(b);
 }
 
 static void generate_amongs(struct generator * g) {
@@ -2581,6 +2578,12 @@ static void generate_header_file(struct generator * g) {
 }
 
 extern void generate_program_c(struct generator * g) {
+    // Build the among tables first as we need the among_function_scenario
+    // list to generate code for amongs with functions.
+    for (struct among * x = g->analyser->amongs; x; x = x->next) {
+        build_among_table(g, x);
+    }
+
     g->outbuf = str_new();
     g->failure_str = str_new();
     write_start_comment(g, "/* ", " */");
