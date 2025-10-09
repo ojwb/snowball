@@ -1640,7 +1640,7 @@ static void generate_substring(struct generator * g, struct node * p) {
             // ret < 0: e.g. slice_check failed in routine.  FIXME: Omit if impossible FIXME: We currently treat this like success...
              //   w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
                 // ret == 0: function signalled f.
-                w(g, "~Mz->c = c ~S0 ~I2;~N");
+                w(g, "~Mz->c = c0 ~S0 ~I2;~N");
                 w(g, "~Mamong_var = ~I3;~N");
                 w(g, "~Mbreak;~N");
                 w(g, "~-~M}~N");
@@ -2011,7 +2011,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                                        v[i].function,
                                        exact, // FIXME?
                                        v[i].i, // FIXME
-                                       cursor_delta); // FIXME
+                                       SIZE(v[v[i].i].b));
                 // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
                 //
                 // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
@@ -2153,7 +2153,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                v[i].function,
                                                exact, // FIXME?
                                                v[i].i, // FIXME
-                                               cursor_delta); // FIXME
+                                               SIZE(v[v[i].i].b));
                     }
                     if (exact < 0) exact = 0x3fff;
                     continue;
