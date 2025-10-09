@@ -246,9 +246,19 @@ struct amongvec {
     struct name * function;
 };
 
+struct among_function_scenario {
+    struct name * function;
+    int t_result; // result (1...)
+    int f_result; // 0 or result (1...) or 0x8000 | af_index
+    int cursor_adjustment; // FIXME length of string corresponding to f_result
+};
+
 struct among {
     struct among * next;
     struct amongvec * b;      /* pointer to the amongvec */
+    // Details of how to handle among functions.
+    struct among_function_scenario * af;
+    int af_count;             /* number of entries in af. */
     int number;               /* amongs are numbered 0, 1, 2 ... */
     int literalstring_count;  /* in this among */
     int command_count;        /* in this among (excludes "no command" entries) */

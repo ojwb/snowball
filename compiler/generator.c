@@ -1603,13 +1603,11 @@ static void generate_substring(struct generator * g, struct node * p) {
             // are generated after the program code currently (and need to be
             // because we can omit them.  Need to generate the info before
             // the program but not write them out until after. FIXME
-            int n_function_scenarios = 0;
             int among_function_chains = false;
-            for (int i = 0; i < n_function_scenarios; ++i) {
-                int t_result = 42; // FIXME
-                int f_result = 42; // FIXME
-                if ((t_result & 0xc000) == 0x8000 ||
-                    (f_result & 0xc000) == 0x8000) {
+            for (int i = 0; i < x->af_count; ++i) {
+                struct among_function_scenario * scenario = &x->af[i];
+                if ((scenario->t_result & 0xc000) == 0x8000 ||
+                    (scenario->f_result & 0xc000) == 0x8000) {
                     among_function_chains = true;
                     break;
                 }
@@ -1622,11 +1620,12 @@ static void generate_substring(struct generator * g, struct node * p) {
             w(g, "~Mint c = z->c;~N");
             // FIXME: Or can use smallest all-1 mask that works.
             w(g, "~Mswitch (among_var & 0x3fff) {~N~+");
-            for (int i = 0; i < n_function_scenarios; ++i) {
-                int cursor_adjustment = 1; // FIXME length of string corresponding to f_result
-                int t_result = 42; // FIXME
-                int f_result = 42; // FIXME
-                struct name * q = NULL; // FIXME set!
+            for (int i = 0; i < x->af_count; ++i) {
+                struct among_function_scenario * scenario = &x->af[i];
+                int cursor_adjustment = scenario->cursor_adjustment;
+                int t_result = scenario->t_result;
+                int f_result = scenario->f_result;
+                struct name * q = scenario->function;
                 g->I[0] = i;
                 g->I[1] = t_result;
                 g->I[2] = cursor_adjustment;
@@ -2388,8 +2387,6 @@ static void generate_among_table(struct generator * g, struct among * x) {
     printf("generate_among_table for among #%d\n", x->number);
     write_newline(g);
     write_comment(g, x->node);
-
-    struct amongvec * v = x->b;
 
     // Idea for new approach to among:
     // consider (in backwards mode):
