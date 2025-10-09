@@ -1626,7 +1626,7 @@ static void generate_substring(struct generator * g, struct node * p) {
                 g->I[2] = cursor_adjustment;
                 g->I[3] = f_result;
                 g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
-                w(g, "~Mcase ~I0: {~N");
+                w(g, "~Mcase ~I0: {~+~N");
                 w(g, "~Mint ret = ");
                 write_varref(g, q);
                 w(g, "();~N");
@@ -1642,6 +1642,8 @@ static void generate_substring(struct generator * g, struct node * p) {
                 // ret == 0: function signalled f.
                 w(g, "~Mz->c = c ~S0 ~I2;~N");
                 w(g, "~Mamong_var = ~I3;~N");
+                w(g, "~Mbreak;~N");
+                w(g, "~-~M}~N");
             }
             w(g, "~-~M}~N");
             w(g, "~-~M}~N");
@@ -1887,6 +1889,26 @@ static void generate_routine_headers(struct generator * g) {
     }
 }
 
+static int find_or_add_af(struct among * x,
+                          struct name * function,
+                          int t_result,
+                          int f_result,
+                          int cursor_adjustment) {
+    for (int i = 0; i < x->af_count; ++i) {
+        if (x->af[i].function == function &&
+            x->af[i].t_result == t_result &&
+            x->af[i].f_result == f_result &&
+            x->af[i].cursor_adjustment == cursor_adjustment) {
+            return i;
+        }
+    }
+    x->af[x->af_count].function = function;
+    x->af[x->af_count].t_result = t_result;
+    x->af[x->af_count].f_result = f_result;
+    x->af[x->af_count].cursor_adjustment = cursor_adjustment;
+    return x->af_count++ | 0x8000;
+}
+
 // Like add_to_b, but insert at the start.
 static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
     int x = SIZE(p) + n - CAPACITY(p);
@@ -1962,7 +1984,7 @@ static int build_among_table_(struct generator * g, struct among * x,
 
     struct amongvec * v = x->b;
 
-    symbol min = (symbol)-1;
+    symbol min = (symbol)-1; // symbol is an unsigned type.
     symbol max = 0;
     int exact = 0;
     int xfix_len = SIZE(*xfix_ptr);
@@ -1982,14 +2004,14 @@ static int build_among_table_(struct generator * g, struct among * x,
                 } else {
                     cursor_delta = v[i].size - v[v[i].i].size;
                 }
-                printf("AF1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                       x->number,
                        v[i].function_index, exact, v[i].i, cursor_delta);
-                x->af[x->af_count].function = v[i].function;
-                x->af[x->af_count].t_result = exact; // FIXME?
-                x->af[x->af_count].f_result = v[i].i; // FIXME
-                x->af[x->af_count].cursor_adjustment = cursor_delta; // FIXME
-                exact = x->af_count | 0x8000;
-                ++x->af_count;
+                exact = find_or_add_af(x,
+                                       v[i].function,
+                                       exact, // FIXME?
+                                       v[i].i, // FIXME
+                                       cursor_delta); // FIXME
                 // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
                 //
                 // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
@@ -2089,7 +2111,9 @@ static int build_among_table_(struct generator * g, struct among * x,
 #endif
         return -exact;
     }
+#if 0
     printf("=== %d\n", min_length_match);
+#endif
 
     int offset = SIZE(out);
 
@@ -2105,7 +2129,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                 *xfix_ptr = prefix_to_b(*xfix_ptr, &min, 1);
             }
             ++xfix_len;
-            min = (symbol)-1;
+            min = (symbol)-1; // symbol is an unsigned type.
             max = 0;
             exact = 0;
             for (int i = 0; i < x->literalstring_count; i++) {
@@ -2122,14 +2146,14 @@ static int build_among_table_(struct generator * g, struct among * x,
                         } else {
                             cursor_delta = v[i].size - v[v[i].i].size;
                         }
-                        printf("AF2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                        printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                               x->number,
                                v[i].function_index, exact, v[i].i, cursor_delta);
-                        x->af[x->af_count].function = v[i].function;
-                        x->af[x->af_count].t_result = exact; // FIXME?
-                        x->af[x->af_count].f_result = v[i].i; // FIXME
-                        x->af[x->af_count].cursor_adjustment = cursor_delta; // FIXME
-                        exact = x->af_count | 0x8000;
-                        ++x->af_count;
+                        exact = find_or_add_af(x,
+                                               v[i].function,
+                                               exact, // FIXME?
+                                               v[i].i, // FIXME
+                                               cursor_delta); // FIXME
                     }
                     if (exact < 0) exact = 0x3fff;
                     continue;
@@ -2161,6 +2185,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         symbol * from = *xfix_ptr;
         if (forwards) from += old_prefix_len;
         for (int i = 0; i < segment_len; ++i) to[i] = from[i];
+#if 0
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
                out[offset],
@@ -2173,6 +2198,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             putchar((*xfix_ptr)[i]);
         }
         printf("]\n");
+#endif
         if (!forwards) {
             memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - old_prefix_len, old_prefix_len * 2);
         }
@@ -2217,6 +2243,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         middle_used = middle_used || (ch > min && ch < max);
     }
     //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
+#if 0
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];
@@ -2228,6 +2255,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         putchar((*xfix_ptr)[i]);
     }
     printf("]\n");
+#endif
 
     if (min > max) {
         return -1;
@@ -2289,6 +2317,9 @@ static void build_among_table(struct generator * g, struct among * x) {
         if (x->b[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
+        printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
+        // FIXME Hack because we can exceed our upper bound - what's going on?
+        among_function_scenario_count_ub *= 2;
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
@@ -2297,7 +2328,6 @@ static void build_among_table(struct generator * g, struct among * x) {
     symbol * xfix = create_b(32); // prefix/suffix
     build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward));
     lose_b(xfix);
-    printf("\n");
 
     x->among_table = b;
 }
