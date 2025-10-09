@@ -1984,6 +1984,12 @@ static int build_among_table_(struct generator * g, struct among * x,
                 }
                 printf("AF1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                        v[i].function_index, exact, v[i].i, cursor_delta);
+                x->af[x->af_count].function = v[i].function;
+                x->af[x->af_count].t_result = exact; // FIXME?
+                x->af[x->af_count].f_result = v[i].i; // FIXME
+                x->af[x->af_count].cursor_adjustment = cursor_delta; // FIXME
+                exact = x->af_count | 0x8000;
+                ++x->af_count;
                 // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
                 //
                 // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
@@ -2118,6 +2124,12 @@ static int build_among_table_(struct generator * g, struct among * x,
                         }
                         printf("AF2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                                v[i].function_index, exact, v[i].i, cursor_delta);
+                        x->af[x->af_count].function = v[i].function;
+                        x->af[x->af_count].t_result = exact; // FIXME?
+                        x->af[x->af_count].f_result = v[i].i; // FIXME
+                        x->af[x->af_count].cursor_adjustment = cursor_delta; // FIXME
+                        exact = x->af_count | 0x8000;
+                        ++x->af_count;
                     }
                     if (exact < 0) exact = 0x3fff;
                     continue;
@@ -2270,6 +2282,16 @@ static void build_among_table(struct generator * g, struct among * x) {
     //
     // Use e.g. FN_IES for that case then have the dispatch function return the
     // RES_* or FN_* for the next longest suffix to try?
+
+    // Calculate an upper bound on the number of different function scenarios.
+    int among_function_scenario_count_ub = 0;
+    for (int i = 0; i < x->literalstring_count; i++) {
+        if (x->b[i].function) ++among_function_scenario_count_ub;
+    }
+    if (among_function_scenario_count_ub) {
+        NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
+        x->af = af;
+    }
 
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
