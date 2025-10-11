@@ -5,6 +5,8 @@
 #include <string.h>  /* for strlen */
 #include "header.h"
 
+#define BUILD_AMONG_TABLE_DEBUG
+
 /* Define this to get warning messages when optimisations can't be used. */
 /* #define OPTIMISATION_WARNINGS */
 
@@ -1644,6 +1646,30 @@ static void generate_substring(struct generator * g, struct node * p) {
                 w(g, "~Mamong_var = ~I3;~N");
                 w(g, "~Mbreak;~N");
                 w(g, "~-~M}~N");
+#ifdef NOTTHIS
+    among_var = find_among(z, a_6);
+    while ((among_var & 0xC000) == 0x8000) { // or if () if no chaining
+        int c = z->c;
+        switch (among_var & 0x3fff) { // Or can use smallest all-1 mask that works.
+            // Need a case for each unique (routine, cursor_adjustment, result) tuple
+            case 0: {
+                ret = r_VI();
+                z->c = c; // Only needed if r_VI can modify c.
+                if (ret > 0) { among_var = -1; break; } // Successful result.
+                if (ret == 0) { among_var = 0; break; } // Chain here... setting z->c = c - N; or c + N;
+                among_var = 0; // E.g. slice_check failed in routine.
+                break;
+            }
+            // In general may have the same function called by more
+            // than one case to handle different results.
+            case 1: {
+                ret = r_LONG();
+                // ...
+                break;
+            }
+        }
+    }
+#endif
             }
             w(g, "~-~M}~N");
             w(g, "~-~M}~N");
@@ -1974,7 +2000,7 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
 static int build_among_table_(struct generator * g, struct among * x,
                               symbol ** xfix_ptr, symbol * out,
                               int forwards) {
-#if 0
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("build_among_table_(g, x, \"");
     for (int i = 0; i < SIZE(*xfix_ptr); ++i) {
         putchar((*xfix_ptr)[i]);
@@ -1982,8 +2008,12 @@ static int build_among_table_(struct generator * g, struct among * x,
     printf("\", out[%d])\n", (int)SIZE(out));
 #endif
 
+    // FIXME:
+    // Emit file to feed into `dot` from graphviz to draw the tree which is
+    // created from the among.
     struct amongvec * v = x->b;
 
+    // Find all entries with the current prefix/suffix.
     symbol min = (symbol)-1; // symbol is an unsigned type.
     symbol max = 0;
     int exact = 0;
@@ -1996,13 +2026,13 @@ static int build_among_table_(struct generator * g, struct among * x,
             continue;
         if (v[i].size == xfix_len) {
             exact = v[i].result;
-            if (exact < 0) exact = 0x3fff;
+//            if (exact < 0) exact = 0x3fff;
             if (v[i].function_index) {
                 int cursor_delta;
                 if (v[i].i < 0) {
                     cursor_delta = -1;
                 } else {
-                    cursor_delta = v[i].size - v[v[i].i].size;
+                    cursor_delta = v[v[i].i].size;
                 }
                 printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                        x->number,
@@ -2011,88 +2041,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                                        v[i].function,
                                        exact, // FIXME?
                                        v[i].i, // FIXME
-                                       SIZE(v[v[i].i].b));
-                // FIXME: find/allocate FN entry for (v[i].function_index, exact, v[i].i)
-                //
-                // What we want is to set the code to FN_x (which has 0x4000 |-ed in)
-                // which is the offset to a list of one or more:
-                //
-                // <af index>,<result>,<cursor adjustment for f>
-                //
-                // we iterate this list doing:
-                //
-                //   c = z->c;
-                //   while (1) {
-                //       if (af_index == 0 || call_among_func(af_index)) return result;
-                //       z->c = c - cursor_adjustment_for_f; // or + for find_among_b()
-                //   }
-                //
-                // encoded as two shorts?
-                //
-                // * af_index | (cursor_adjustment_for_f << 8)
-                // * result
-                //
-                // Or we generate C code to handle the among functions outside the
-                // helper.  E.g.
-#ifdef NOTTHIS
-    among_var = find_among(z, a_6);
-    while ((among_var & 0xC000) == 0x8000) { // or if () if no chaining
-        int c = z->c;
-        switch (among_var & 0x3fff) { // Or can use smallest all-1 mask that works.
-            // Need a case for each unique (routine, cursor_adjustment, result) tuple
-            case 0: {
-                ret = r_VI();
-                z->c = c; // Only needed if r_VI can modify c.
-                if (ret > 0) { among_var = -1; break; } // Successful result.
-                if (ret == 0) { among_var = 0; break; } // Chain here... setting z->c = c - N; or c + N;
-                among_var = 0; // E.g. slice_check failed in routine.
-                break;
-            }
-            // In general may have the same function called by more
-            // than one case to handle different results.
-            case 1:
-                ret = r_LONG();
-                // ...
-                break;
-            }
-        }
-    }
-#endif
-                // ---
-                //
-                // OLDER RAMBLINGS:
-                //
-                // if new entry, map v[i].i to something which allows us to jump to
-                // processing that in this table:
-                // cursor offset to apply to original z->c and offset in this table?
-                //
-                // * In a range, if the among function fails then it is just like a
-                //   zero entry and we use the "exact" entry instead
-                // * For a segment we use the "exact" entry instead
-                // * If an "exact" entry has an among function which fails, then we
-                //   need to use the "exact" for the parent of this entry.  We may
-                //   need to do that recursively though.  We could store a list of
-                //   these entries in the table.
-                //
-                // So FN_XYZ entry is:
-                //
-                // <af index>,<cursor adjustment for f> <t-code> <f-code>
-                //
-                // where <t-code> could be OFFSET_* or RESULT_*
-                //       <f-code> could be 0 or OFFSET_* or RESULT_* or e.g. FN_YZ
-                //
-                // exact = 0x400 | fn_entry_index;
-#if 0
-                int fn = SIZE(out);
-                int entry_len = 3;
-                if (CAPACITY(out) < SIZE(out) + entry_len) {
-                    out = increase_capacity_b(out, entry_len);
-                }
-                SIZE(out) += entry_len;
-                out[fn] = v[i].function_index | (cursor_adj << 8);
-                out[fn + 1] = exact;
-                out[fn + 2] = 
-#endif
+                                       cursor_delta);
             }
             continue;
         }
@@ -2102,7 +2051,8 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (ch > max) max = ch;
     }
     if (min > max) {
-#if 0
+        // No entries have the current prefix/suffix.
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("nothing with prefix [");
         for (int i = 0; i < xfix_len; ++i) {
             putchar((*xfix_ptr)[i]);
@@ -2111,13 +2061,16 @@ static int build_among_table_(struct generator * g, struct among * x,
 #endif
         return -exact;
     }
-#if 0
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("=== %d\n", min_length_match);
 #endif
 
     int offset = SIZE(out);
 
     if (min == max) {
+        // All entries with the current prefix/suffix have the same next byte.
+        // Check following bytes until we find where that stops being the
+        // case and then emit a segment to check for.
         // 0       2,-           RES_IES | 'i' 'e'
         // ^exact  ^length,0
         int old_prefix_len = xfix_len;
@@ -2139,12 +2092,14 @@ static int build_among_table_(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == xfix_len) {
                     exact = v[i].result;
+                  //  if (exact < 0) exact = 0x3fff;
                     if (v[i].function_index) {
+                        printf("### %d/%d %d\n", i, x->literalstring_count, v[i].i);
                         int cursor_delta;
                         if (v[i].i < 0) {
                             cursor_delta = -1;
                         } else {
-                            cursor_delta = v[i].size - v[v[i].i].size;
+                            cursor_delta = v[v[i].i].size;
                         }
                         printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                                x->number,
@@ -2153,9 +2108,8 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                v[i].function,
                                                exact, // FIXME?
                                                v[i].i, // FIXME
-                                               SIZE(v[v[i].i].b));
+                                               cursor_delta);
                     }
-                    if (exact < 0) exact = 0x3fff;
                     continue;
                 }
                 symbol ch = v[i].b[forwards ? xfix_len : v[i].size - 1 - xfix_len];
@@ -2185,7 +2139,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         symbol * from = *xfix_ptr;
         if (forwards) from += old_prefix_len;
         for (int i = 0; i < segment_len; ++i) to[i] = from[i];
-#if 0
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
                out[offset],
@@ -2206,13 +2160,16 @@ static int build_among_table_(struct generator * g, struct among * x,
         return offset;
     }
 
+    // Multiple entries have the specified prefix/suffix and the next byte is
+    // not the same for all of them.  We do an N-way dispatch on the next byte.
+    //
     // 0       'd','s'         OFFSET_D 0 0 ... OFFSET_S
     int entry_len = (max - min) + 1 + 2;
     if (CAPACITY(out) < SIZE(out) + entry_len) {
         out = increase_capacity_b(out, entry_len);
     }
     SIZE(out) += entry_len;
-    out[offset] = exact;
+    out[offset] = exact & 0x3fff;
     out[offset + 1] = min + (max << 8);
     for (int i = 0; i < max - min + 1; ++i) {
         out[offset + 2 + i] = 0;
@@ -2243,7 +2200,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         middle_used = middle_used || (ch > min && ch < max);
     }
     //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
-#if 0
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("%d:\t%d\t%c,%c", offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];
@@ -2264,6 +2221,7 @@ static int build_among_table_(struct generator * g, struct among * x,
 }
 
 static void build_among_table(struct generator * g, struct among * x) {
+    printf("\nbuild_among_table for A#%d on line %d with %d strings\n", x->number, x->node->line_number, x->literalstring_count);
     // Idea for new approach to among:
     // consider (in backwards mode):
     //
@@ -2277,19 +2235,21 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     // Work in bytes for UTF-8:
     //
-    // offset_t min_m  byte byte         offset_t...
-    // <exact>         <min> <range>     <pointer>...
-    // 0        1      'd'   's'         OFFSET_D 0 0 ... OFFSET_S         // 2+16   = 18
+    // offset_t min_m  seglen byte byte         offset_t...
+    // <exact>  <byte> <byte> <min> <range>     <pointer>...
+    // 0        1      0      'd'   's'         OFFSET_D 0 0 ... OFFSET_S         // 3+16   = 19
     // OFFSET_D:
-    //                                   offset_t|byte...
-    // 0        2      2     0           RES_IES | 'i' 'e'                 // 2+1+1  = 4
+    //                        offset_t|byte...
+    // 0        2      2      RES_IED | 'i' 'e'                                   // 2+1+1  = 4
     // OFFSET_S:
-    // RES_S    1      'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
+    // RES_S    1      0      'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 3+17   = 20
     //
     // OFFSET_ES:
-    // RES_ES   1      2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
+    // 0        1      0      'i'   's'         RES_IES 0 0 .. OFFSET_SES         // 3+11   = 13
+    // OFFSET_SES:
+    // 0        1      1      RES_SSES | 's' -                                    // 2+1+1  = 4
     //
-    // Total                                                                   45 * sizeof(short)?
+    // Total                                                                  60 * sizeof(short)?
     //
     // (min_m doesn't help for this among!)
     //
@@ -2311,6 +2271,24 @@ static void build_among_table(struct generator * g, struct among * x) {
     // Use e.g. FN_IES for that case then have the dispatch function return the
     // RES_* or FN_* for the next longest suffix to try?
 
+    // Combined segment and branch:
+    //
+    //                 <--- SEGMENT ---->
+    // offset_t min_m  byte byte...        byte  byte    offset_t...
+    // <exact>         <len>               <min> <range> <pointer>...
+    // 0        1      0    -              'd'   's'     OFFSET_D 0 0 ... OFFSET_S         // 3+16   = 19
+    //
+    // OFFSET_D:
+    // 0        2      2    'i' 'e' -      -     -       RES_IED                           // 5
+    // OFFSET_S:
+    // RES_S    1      'e'   'u'         OFFSET_ES 0 0 .. RES_SS 0 RES_US  // 2+17   = 19
+    //
+    // OFFSET_ES:
+    // RES_ES   1      2     0           RES_SSES | 's' 's'                // 2+1+1  = 4
+    //
+    // Total                                                                   45 * sizeof(short)?
+
+
     // Calculate an upper bound on the number of different function scenarios.
     int among_function_scenario_count_ub = 0;
     for (int i = 0; i < x->literalstring_count; i++) {
@@ -2319,7 +2297,7 @@ static void build_among_table(struct generator * g, struct among * x) {
     if (among_function_scenario_count_ub) {
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
         // FIXME Hack because we can exceed our upper bound - what's going on?
-        among_function_scenario_count_ub *= 2;
+        among_function_scenario_count_ub = among_function_scenario_count_ub * 2 + 20;
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
