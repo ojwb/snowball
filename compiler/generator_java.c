@@ -1066,12 +1066,12 @@ static void generate_define(struct generator * g, struct node * p) {
                 case t_integer:
                     w(g, "~Mint ");
                     write_varname(g, name);
-                    write_newline(g);
+                    w(g, ";~N");
                     break;
                 case t_boolean:
                     w(g, "~Mboolean ");
                     write_varname(g, name);
-                    write_newline(g);
+                    w(g, ";~N");
                     break;
             }
         }
