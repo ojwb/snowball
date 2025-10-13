@@ -1829,7 +1829,7 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
                 r = always_set_before_use(p->left, func, v);
                 if (r != UNKNOWN) return r;
                 break;
-            case c_define: /* FIXME? */
+//            case c_define: /* FIXME? */
             case c_do:
             case c_gopast:
             case c_goto:
@@ -2511,18 +2511,22 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
     for (struct name * name = a->names; name; name = name->next) {
         if (name->local_to != NULL) {
             if (localise_mask & (1 << name->type)) {
-                struct node * func = name->local_to->definition;
+                struct node * func = name->local_to->definition->left;
+#if 0
                 printf("always_set_before_use(a->program, ");
                 printf("<func>");
                 printf(", ");
                 report_s(stdout, name->s);
                 printf(") = %d\n", always_set_before_use(a->program, func, name));
+#endif
                 if (always_set_before_use(func, func, name) != PASS) {
                     name->local_to = NULL;
                 } else {
-                    printf("SUCCESSFULLY LOCALISED ");
-                    report_s(stdout, name->s);
-                    printf("\n");
+#if 0
+                    fprintf(stderr, "SUCCESSFULLY LOCALISED ");
+                    report_s(stderr, name->s);
+                    fprintf(stderr, "\n");
+#endif
                 }
             } else {
                 name->local_to = NULL;
