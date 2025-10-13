@@ -1875,8 +1875,9 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
             case c_gopast_grouping:
             case c_goto_non:
             case c_gopast_non:
-            // case c_functionend: FIXME: breaks stuff?
                 break;
+            case c_functionend:
+                return PASS;
             case c_eq:
             case c_ne:
             case c_gt:
