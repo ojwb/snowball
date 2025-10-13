@@ -1769,8 +1769,10 @@ enum { FAIL = -1, UNKNOWN = 0, PASS = 1 };
  *
  * This isn't complete, but handles all cases in existing stemmers, and errs
  * by being too conservative.
+ *
+ * func is the routine/external this code is in.
  */
-static int always_set_before_use(struct node * p,struct node * func, struct name * v) {
+static int always_set_before_use(struct node * p, struct node * func, struct name * v) {
     int r;
     while (p) {
         switch (p->type) {
@@ -1790,8 +1792,6 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
                 break;
             }
             case c_among: {
-                /* FIXME: If first p->left is c_bra, handle specially as always
-                 * executed... */
                 struct node * q = p->left;
                 int all_pass = true;
                 while (q) {
@@ -1871,6 +1871,10 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
             case c_rightslice:
             case c_debug:
             case c_substring:
+            case c_goto_grouping:
+            case c_gopast_grouping:
+            case c_goto_non:
+            case c_gopast_non:
             // case c_functionend: FIXME: breaks stuff?
                 break;
             case c_eq:
@@ -1900,6 +1904,7 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
         p = p->right;
     }
 #if 0
+
             if (p->AE) { }
             if (p->left) { }
             if (p->aux) { } /* setlimit */
@@ -1912,6 +1917,7 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
 
         case c_attach: /*OK*/
         case c_booltest: /*OK*/
+        case c_not_booltest:
         case c_insert: /*OK*/
         case c_lenof: /*OK*/
         case c_name: /*OK*/

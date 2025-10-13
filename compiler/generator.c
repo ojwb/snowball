@@ -44,8 +44,8 @@ static void write_varname(struct generator * g, struct name * p) {
         case t_boolean:
         case t_integer: {
             if (p->local_to != NULL) {
-                /* Name local variables as s_ b_ or i_ plus their snowball
-                 * variable name.
+                /* Name local variables using their Snowball name prefixed by
+                 * s_, b_ or i_.
                  */
                 write_char(g, "sbi"[p->type]);
                 write_char(g, '_');
