@@ -93,10 +93,10 @@ impl<'a> SnowballEnv<'a> {
     }
 
     /// Replace string between `bra` and `ket` with s
-    pub fn slice_from(&mut self, s: &str) -> bool {
+    pub fn slice_from(&mut self, s: &str) {
         let (bra, ket) = (self.bra, self.ket);
         self.replace_s(bra, ket, s);
-        true
+        self.ket = bra + s.len() as i32;
     }
 
     /// Move cursor to next character
@@ -115,30 +115,44 @@ impl<'a> SnowballEnv<'a> {
         }
     }
 
-    pub fn byte_index_for_hop(&self, mut delta: i32) -> i32 {
-        if delta > 0 {
-            let mut res = self.cursor;
-            while delta > 0 {
+    pub fn hop(&mut self, mut delta: i32) -> bool {
+        let mut res = self.cursor;
+        while delta > 0 {
+            delta -= 1;
+            if res >= self.limit {
+                return false;
+            }
+            res += 1;
+            while res < self.limit && !self.current.is_char_boundary(res as usize) {
                 res += 1;
-                delta -= 1;
-                while res <= self.current.len() as i32 && !self.current.is_char_boundary(res as usize) {
-                    res += 1;
-                }
             }
-            return res;
-        } else if delta < 0 {
-            let mut res: i32 = self.cursor;
-            while delta < 0 {
-                res -= 1;
-                delta += 1;
-                while res >= 0 && !self.current.is_char_boundary(res as usize) {
-                    res -= 1;
-                }
-            }
-            return res as i32;
-        } else {
-            return self.cursor as i32;
         }
+        self.cursor = res;
+        return true;
+    }
+
+    pub fn hop_checked(&mut self, delta: i32) -> bool {
+        return delta >= 0 && self.hop(delta);
+    }
+
+    pub fn hop_back(&mut self, mut delta: i32) -> bool {
+        let mut res = self.cursor;
+        while delta > 0 {
+            delta -= 1;
+            if res <= self.limit_backward {
+                return false;
+            }
+            res -= 1;
+            while res > self.limit_backward && !self.current.is_char_boundary(res as usize) {
+                res -= 1;
+            }
+        }
+        self.cursor = res;
+        return true;
+    }
+
+    pub fn hop_back_checked(&mut self, delta: i32) -> bool {
+        return delta >= 0 && self.hop_back(delta);
     }
 
     // A grouping is represented by a minimum code point, a maximum code point,
@@ -175,23 +189,65 @@ impl<'a> SnowballEnv<'a> {
         return false;
     }
 
+    pub fn go_in_grouping(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
+        while self.cursor < self.limit {
+            if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
+                let mut ch = chr as u32; //codepoint as integer
+                if ch > max || ch < min {
+                    return true;
+                }
+                ch -= min;
+                if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) == 0 {
+                    return true;
+                }
+                self.next_char();
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+
     pub fn in_grouping_b(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
         if self.cursor <= self.limit_backward {
             return false;
         }
+        let c = self.cursor;
         self.previous_char();
         if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
             let mut ch = chr as u32; //codepoint as integer
-            self.next_char();
             if ch > max || ch < min {
+                self.cursor = c;
                 return false;
             }
             ch -= min;
             if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) == 0 {
+                self.cursor = c;
                 return false;
             }
-            self.previous_char();
             return true;
+        }
+        return false;
+    }
+
+    pub fn go_in_grouping_b(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
+        while self.cursor > self.limit_backward {
+            let c = self.cursor;
+            self.previous_char();
+            if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
+                let mut ch = chr as u32; //codepoint as integer
+                if ch > max || ch < min {
+                    self.cursor = c;
+                    return true;
+                }
+                ch -= min;
+                if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) == 0 {
+                    self.cursor = c;
+                    return true;
+                }
+            } else {
+                return false;
+            }
         }
         return false;
     }
@@ -215,31 +271,67 @@ impl<'a> SnowballEnv<'a> {
         return false;
     }
 
+    pub fn go_out_grouping(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
+        while self.cursor < self.limit {
+            if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
+                let mut ch = chr as u32; //codepoint as integer
+                if ch <= max && ch >= min {
+                    ch -= min;
+                    if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) != 0 {
+                        return true;
+                    }
+                }
+                self.next_char();
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+
     pub fn out_grouping_b(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
         if self.cursor <= self.limit_backward {
             return false;
         }
+        let c = self.cursor;
         self.previous_char();
         if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
             let mut ch = chr as u32; //codepoint as integer
-            self.next_char();
             if ch > max || ch < min {
-                self.previous_char();
                 return true;
             }
             ch -= min;
             if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) == 0 {
-                self.previous_char();
                 return true;
+            }
+            self.cursor = c;
+        }
+        return false;
+    }
+
+    pub fn go_out_grouping_b(&mut self, chars: &[u8], min: u32, max: u32) -> bool {
+        while self.cursor > self.limit_backward {
+            let c = self.cursor;
+            self.previous_char();
+            if let Some(chr) = self.current[self.cursor as usize..].chars().next() {
+                let mut ch = chr as u32; //codepoint as integer
+                if ch <= max && ch >= min {
+                    ch -= min;
+                    if (chars[(ch >> 3) as usize] & (0x1 << (ch & 0x7))) != 0 {
+                        self.cursor = c;
+                        return true;
+                    }
+                }
+            } else {
+                return false;
             }
         }
         return false;
-
     }
 
 
     /// Helper function that removes the string slice between `bra` and `ket`
-    pub fn slice_del(&mut self) -> bool {
+    pub fn slice_del(&mut self) {
         self.slice_from("")
     }
 
@@ -315,9 +407,8 @@ impl<'a> SnowballEnv<'a> {
             if common_i >= w.0.len() as i32{
                 self.cursor = c + w.0.len() as i32;
                 if let Some(ref method) = w.3 {
-                    let res = method(self, context);
-                    self.cursor = c + w.0.len() as i32;
-                    if res {
+                    if method(self, context) {
+                        self.cursor = c + w.0.len() as i32;
                         return w.2;
                     }
                 } else {
@@ -389,9 +480,8 @@ impl<'a> SnowballEnv<'a> {
             if common_i >= w.0.len() as i32 {
                 self.cursor = c - w.0.len() as i32;
                 if let Some(ref method) = w.3 {
-                    let res = method(self, context);
-                    self.cursor = c - w.0.len() as i32;
-                    if res {
+                    if method(self, context) {
+                        self.cursor = c - w.0.len() as i32;
                         return w.2;
                     }
                 } else {

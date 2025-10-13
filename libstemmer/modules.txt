@@ -10,11 +10,14 @@
 # the most commonly used encoding.
 
 arabic          UTF_8                   arabic,ar,ara
+armenian        UTF_8                   armenian,hy,hye,arm
 basque          UTF_8,ISO_8859_1        basque,eu,eus,baq
 catalan         UTF_8,ISO_8859_1        catalan,ca,cat
 danish          UTF_8,ISO_8859_1        danish,da,dan
-dutch           UTF_8,ISO_8859_1        dutch,nl,dut,nld
+dutch           UTF_8,ISO_8859_1        dutch,nl,dut,nld,kraaij_pohlmann
 english         UTF_8,ISO_8859_1        english,en,eng
+esperanto       UTF_8                   esperanto,eo,epo
+estonian        UTF_8                   estonian,et,est
 finnish         UTF_8,ISO_8859_1        finnish,fi,fin
 french          UTF_8,ISO_8859_1        french,fr,fre,fra
 german          UTF_8,ISO_8859_1        german,de,ger,deu
@@ -27,20 +30,29 @@ italian         UTF_8,ISO_8859_1        italian,it,ita
 lithuanian      UTF_8                   lithuanian,lt,lit
 nepali          UTF_8                   nepali,ne,nep
 norwegian       UTF_8,ISO_8859_1        norwegian,no,nor
+polish          UTF_8,ISO_8859_2        polish,pl,pol
 portuguese      UTF_8,ISO_8859_1        portuguese,pt,por
-romanian        UTF_8,ISO_8859_2        romanian,ro,rum,ron
+romanian        UTF_8                   romanian,ro,rum,ron
 russian         UTF_8,KOI8_R            russian,ru,rus
 serbian         UTF_8                   serbian,sr,srp
 spanish         UTF_8,ISO_8859_1        spanish,es,esl,spa
 swedish         UTF_8,ISO_8859_1        swedish,sv,swe
 tamil           UTF_8                   tamil,ta,tam
 turkish         UTF_8                   turkish,tr,tur
+yiddish         UTF_8                   yiddish,yi,yid
 
 # Also include the traditional porter algorithm for english.
 # The porter algorithm is included in the libstemmer distribution to assist
 # with backwards compatibility, but for new systems the english algorithm
 # should be used in preference.
-porter          UTF_8,ISO_8859_1        porter			english
+porter          UTF_8,ISO_8859_1        porter                  english
+
+# This is Martin Porter's Dutch stemmer.  It was the default Dutch stemming
+# in Snowball 2.2.0 and earlier, but after user feedback and careful evaluation
+# we concluded that the Kraaij-Pohlmann Dutch stemmer was a better default.
+# We still provide this to help people who have a lot of existing data indexed
+# using it.
+dutch_porter    UTF_8,ISO_8859_1        dutch_porter            dutch
 
 # Some other stemmers in the snowball project are not included in the standard
 # distribution. To compile a libstemmer with them in, add them to this list,
@@ -49,13 +61,7 @@ porter          UTF_8,ISO_8859_1        porter			english
 # intended for general use, and use of them is is not fully supported.  These
 # algorithms are:
 #
-# german2          - This is a slight modification of the german stemmer.
-#german2          UTF_8,ISO_8859_1        german2		german
-#
-# kraaij_pohlmann  - This is a different dutch stemmer.
-#kraaij_pohlmann  UTF_8,ISO_8859_1        kraaij_pohlmann	dutch
-#
 # lovins           - This is an english stemmer, but fairly outdated, and
 #                    only really applicable to a restricted type of input text
 #                    (keywords in academic publications).
-#lovins           UTF_8,ISO_8859_1        lovins		english
+#lovins           UTF_8,ISO_8859_1        lovins                english

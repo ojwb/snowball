@@ -1,10 +1,5 @@
 
-#include <limits.h>
-
 #include "api.h"
-
-#define MAXINT INT_MAX
-#define MININT INT_MIN
 
 #define HEAD 2*sizeof(int)
 
@@ -12,18 +7,48 @@
 #define SET_SIZE(p, n) ((int *)(p))[-1] = n
 #define CAPACITY(p)    ((int *)(p))[-2]
 
+#ifdef SNOWBALL_DEBUG_COMMAND_USED
+# include <stdio.h>
+static void debug(struct SN_env * z, int number, int line_count) {
+    int i;
+    int limit = SIZE(z->p);
+    if (number >= 0) printf("%3d (line %4d): [%d]'", number, line_count, limit);
+    for (i = 0; i <= limit; i++) {
+        if (z->lb == i) printf("{");
+        if (z->bra == i) printf("[");
+        if (z->c == i) printf("|");
+        if (z->ket == i) printf("]");
+        if (z->l == i) printf("}");
+        if (i < limit) {
+            int ch = z->p[i];
+            if (ch == 0) ch = '#';
+            printf("%c", ch);
+        }
+    }
+    printf("'\n");
+}
+#endif
+
 struct among
-{   int s_size;     /* number of chars in string */
-    const symbol * s;       /* search string */
-    int substring_i;/* index to longest matching substring */
-    int result;     /* result of the lookup */
-    int (* function)(struct SN_env *);
+{
+    /* Number of symbols in s. */
+    int s_size;
+    /* Search string. */
+    const symbol * s;
+    /* Delta of index to longest matching substring, or 0 if none. */
+    int substring_i;
+    /* Result of the lookup. */
+    int result;
+    /* Optional condition routine index, or 0 if none. */
+    int function;
 };
 
 extern symbol * create_s(void);
 extern void lose_s(symbol * p);
 
-extern int skip_utf8(const symbol * p, int c, int lb, int l, int n);
+extern int skip_utf8(const symbol * p, int c, int limit, int n);
+
+extern int skip_b_utf8(const symbol * p, int c, int limit, int n);
 
 extern int in_grouping_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
 extern int in_grouping_b_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat);
@@ -40,8 +65,10 @@ extern int eq_s_b(struct SN_env * z, int s_size, const symbol * s);
 extern int eq_v(struct SN_env * z, const symbol * p);
 extern int eq_v_b(struct SN_env * z, const symbol * p);
 
-extern int find_among(struct SN_env * z, const struct among * v, int v_size);
-extern int find_among_b(struct SN_env * z, const struct among * v, int v_size);
+extern int find_among(struct SN_env * z, const struct among * v, int v_size,
+                      int (*)(struct SN_env *));
+extern int find_among_b(struct SN_env * z, const struct among * v, int v_size,
+                        int (*)(struct SN_env *));
 
 extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s, int * adjustment);
 extern int slice_from_s(struct SN_env * z, int s_size, const symbol * s);
@@ -55,5 +82,3 @@ extern symbol * slice_to(struct SN_env * z, symbol * p);
 extern symbol * assign_to(struct SN_env * z, symbol * p);
 
 extern int len_utf8(const symbol * p);
-
-extern void debug(struct SN_env * z, int number, int line_count);

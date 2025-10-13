@@ -1,4 +1,7 @@
+.DS_Store
 *.o
+/ada/bin/
+/ada/obj/
 /algorithms.mk
 /libstemmer/libstemmer.c
 /libstemmer/libstemmer_utf8.c
@@ -6,12 +9,17 @@
 /libstemmer/mkinc_utf8.mak
 /libstemmer/modules.h
 /libstemmer/modules_utf8.h
+/libstemmer.a
 /snowball
 /src_c
+/stemtest
 /stemwords
 /dist
 /java/org/tartarus/snowball/ext/
+/dart/lib/ext/
+/dart/lib/src/algorithms.dart
 /js_out
+/php_out
 /python_check
 /python_out
 *.generated.cs
