@@ -36,7 +36,7 @@ static void write_varname(struct generator * g, struct name * p) {
 }
 
 static void write_varref(struct generator * g, struct name * p) {
-    if (p->type != t_grouping) {
+    if (p->type != t_grouping && p->local_to == NULL) {
         w(g, "this.#");
     }
     write_varname(g, p);
