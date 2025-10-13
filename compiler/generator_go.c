@@ -1023,6 +1023,7 @@ static void generate_setup_context(struct generator * g) {
 
     w(g, "~Mvar context = &Context{~+~N");
     for (struct name * q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         switch (q->type) {
             case t_string:
                 write_margin(g);
@@ -1078,7 +1079,7 @@ static void generate_define(struct generator * g, struct node * p) {
                 case t_integer:
                     w(g, "~Mvar ");
                     write_varname(g, name);
-                    w(g, " int32;~N");
+                    w(g, " int;~N");
                     break;
                 case t_boolean:
                     w(g, "~Mvar ");
