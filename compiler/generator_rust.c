@@ -33,7 +33,9 @@ static void write_varname(struct generator * g, struct name * p) {
 }
 
 static void write_varref(struct generator * g, struct name * p) {
-    write_string(g, "context.");
+    if (p->local_to == NULL) {
+        write_string(g, "context.");
+    }
     write_varname(g, p);
 }
 
@@ -1018,6 +1020,7 @@ static void generate_literalstring(struct generator * g, struct node * p) {
 static void generate_setup_context(struct generator * g) {
     w(g, "~Mlet mut context = &mut Context {~+~N");
     for (struct name * q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         switch (q->type) {
             case t_string:
                 write_margin(g);
@@ -1068,7 +1071,7 @@ static void generate_define(struct generator * g, struct node * p) {
                 case t_integer:
                     w(g, "~Mlet mut ");
                     write_varname(g, name);
-                    w(g, " : usize;~N");
+                    w(g, " : i32;~N");
                     break;
                 case t_boolean:
                     w(g, "~Mlet mut ");
