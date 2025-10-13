@@ -32,7 +32,7 @@ static void print_node_(const struct node * p, int n, const char * s) {
 }
 
 extern void print_program(struct analyser * a) {
-    print_node_(a->program, 0, "");
+    if (a->program) print_node_(a->program, 0, "");
 }
 
 static struct node * new_node(struct analyser * a, int type) {
@@ -156,7 +156,7 @@ static struct name * look_for_name(struct analyser * a) {
         byte * b = p->s;
         int n = SIZE(b);
         if (n == SIZE(q) && memcmp(q, b, n) == 0) {
-            p->referenced = true;
+            ++p->references;
             return p;
         }
     }
@@ -2297,7 +2297,7 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
     }
 
     for (struct name * q = a->names; q; q = q->next) {
-        if (!q->referenced) {
+        if (q->references == 0) {
             fprintf(stderr, "%s:%d: warning: %s '%.*s' ",
                     a->tokeniser->file,
                     q->declaration_line_number,
@@ -2308,7 +2308,7 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                 q->type == t_grouping) {
                 fprintf(stderr, "declared but not defined\n");
             } else {
-                fprintf(stderr, "defined but not used\n");
+                fprintf(stderr, "declared but not used\n");
             }
             q->used = NULL;
             continue;
