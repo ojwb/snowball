@@ -1836,8 +1836,8 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
             case c_try:
             case c_repeat:
                 r = always_set_before_use(p->left, func, v);
-		printf(" *** Handling %s\n", name_of_token(p->type));
-		printf("  r = %d\n", r);
+                printf(" *** Handling %s\n", name_of_token(p->type));
+                printf("  r = %d\n", r);
                 if (r == FAIL) return r;
                 /* FIXME: if the first command sets the variable and can't fail
                  * in the process we should return PASS here.
@@ -1892,7 +1892,7 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
                 break;
             default:
                 /* Pessimistic assumption for cases we don't handle yet. */
-		/* FIXME: c_not used by kraaij_pohlmann */
+                /* FIXME: c_not used by kraaij_pohlmann */
                 printf("Assuming the worst about '%s' (%d)\n", name_of_token(p->type), p->type);
                 return FAIL;
         }
@@ -2508,17 +2508,17 @@ extern void read_program(struct analyser * a) {
                 if (localise_mask & (1 << name->type)) {
                     struct node * func = name->local_to->definition;
                     printf("always_set_before_use(a->program, ");
-		    printf("<func>");
+                    printf("<func>");
                     printf(", ");
-		    report_b(stdout, name->b);
+                    report_b(stdout, name->b);
                     printf(") = %d\n", always_set_before_use(a->program, func, name));
                     if (always_set_before_use(func, func, name) != PASS) {
                         name->local_to = NULL;
                     } else {
-			printf("SUCCESSFULLY LOCALISED ");
-			report_b(stdout, name->b);
-			printf("\n");
-		    }
+                        printf("SUCCESSFULLY LOCALISED ");
+                        report_b(stdout, name->b);
+                        printf("\n");
+                    }
                 } else {
                     name->local_to = NULL;
                 }

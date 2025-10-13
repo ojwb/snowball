@@ -482,12 +482,12 @@ extern int main(int argc, char * argv[]) {
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;
-		case LANG_ADA:
-		case LANG_DART:
-		case LANG_PHP:
-		    // FIXME: Implement for these.
+                case LANG_ADA:
+                case LANG_DART:
+                case LANG_PHP:
+                    // FIXME: Implement for these.
                     localise_mask = 0;
-		    break;
+                    break;
             }
             read_program(a, localise_mask);
             if (t->error_count > 0) exit(1);

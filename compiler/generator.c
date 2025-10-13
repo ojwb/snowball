@@ -47,10 +47,10 @@ static void write_varname(struct generator * g, struct name * p) {
                 /* Name local variables as s_ b_ or i_ plus their snowball
                  * variable name.
                  */
-		write_char(g, "sbi"[p->type]);
+                write_char(g, "sbi"[p->type]);
                 write_char(g, '_');
                 write_b(g, p->b);
-		return;
+                return;
             }
             int count = p->count;
             if (count < 0) {
@@ -65,7 +65,7 @@ static void write_varname(struct generator * g, struct name * p) {
                  */
                 count += g->analyser->name_count[t_integer];
             }
-	    write_char(g, "SIIrxg"[p->type]);
+            write_char(g, "SIIrxg"[p->type]);
             write_char(g, '[');
             write_int(g, count);
             write_char(g, ']');
@@ -1490,15 +1490,15 @@ static void generate_define(struct generator * g, struct node * p) {
 
     /* Declare local variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
-	if (name->local_to == q) {
-	    g->V[0] = name;
-	    switch (name->type) {
-		case t_boolean:
-		case t_integer:
-		    writef(g, "~Mint ~V0;~N", p);
-		    break;
-	    }
-	}
+        if (name->local_to == q) {
+            g->V[0] = name;
+            switch (name->type) {
+                case t_boolean:
+                case t_integer:
+                    writef(g, "~Mint ~V0;~N", p);
+                    break;
+            }
+        }
     }
 
     str_clear(g->failure_str);
