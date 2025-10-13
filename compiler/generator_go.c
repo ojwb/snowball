@@ -1074,13 +1074,16 @@ static void generate_define(struct generator * g, struct node * p) {
     /* Declare local variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
-            g->V[0] = name;
             switch (name->type) {
                 case t_integer:
-                    writef(g, "~Mvar ~V0 int32;~N", p);
+                    w(g, "~Mvar ");
+                    write_varname(g, name);
+                    w(g, " int32;~N");
                     break;
                 case t_boolean:
-                    writef(g, "~Mvar ~V0 bool;~N", p);
+                    w(g, "~Mvar ");
+                    write_varname(g, name);
+                    w(g, " bool;~N");
                     break;
             }
         }

@@ -460,7 +460,7 @@ extern int main(int argc, char * argv[]) {
                 next_input_ptr = &(q->next);
             }
             *next_input_ptr = NULL;
-            switch (o->make_lang) {
+            switch (o->target_lang) {
                 case LANG_C:
                 case LANG_CPLUSPLUS:
                 case LANG_CSHARP:

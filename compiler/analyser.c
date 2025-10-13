@@ -1871,12 +1871,13 @@ static int always_set_before_use(struct node * p,struct node * func, struct name
             case c_rightslice:
             case c_debug:
             case c_substring:
+            // case c_functionend: FIXME: breaks stuff?
                 break;
             case c_eq:
             case c_ne:
-            case c_gr:
+            case c_gt:
             case c_ge:
-            case c_ls:
+            case c_lt:
             case c_le:
                 break;
             case c_setlimit:
@@ -2253,7 +2254,7 @@ static void visit_routine(struct analyser * a, struct name * n) {
     p->possible_signals = p->left->possible_signals;
 }
 
-extern void read_program(struct analyser * a) {
+extern void read_program(struct analyser * a, unsigned localise_mask) {
     read_program_(a, -1);
     for (struct name * q = a->names; q; q = q->next) {
         // Declaring but not defining is only an error if used.  We'll issue
@@ -2500,32 +2501,29 @@ extern void read_program(struct analyser * a) {
      * referenced in - we handle such cases because the current check is easier
      * to implement and covers all the cases in the current stemmers.
      */
-    {
-        struct name * name;
-        memset(a->name_count, 0, sizeof(a->name_count));
-        for (name = a->names; name; name = name->next) {
-            if (name->local_to != NULL) {
-                if (localise_mask & (1 << name->type)) {
-                    struct node * func = name->local_to->definition;
-                    printf("always_set_before_use(a->program, ");
-                    printf("<func>");
-                    printf(", ");
-                    report_b(stdout, name->b);
-                    printf(") = %d\n", always_set_before_use(a->program, func, name));
-                    if (always_set_before_use(func, func, name) != PASS) {
-                        name->local_to = NULL;
-                    } else {
-                        printf("SUCCESSFULLY LOCALISED ");
-                        report_b(stdout, name->b);
-                        printf("\n");
-                    }
-                } else {
+    memset(a->name_count, 0, sizeof(a->name_count));
+    for (struct name * name = a->names; name; name = name->next) {
+        if (name->local_to != NULL) {
+            if (localise_mask & (1 << name->type)) {
+                struct node * func = name->local_to->definition;
+                printf("always_set_before_use(a->program, ");
+                printf("<func>");
+                printf(", ");
+                report_s(stdout, name->s);
+                printf(") = %d\n", always_set_before_use(a->program, func, name));
+                if (always_set_before_use(func, func, name) != PASS) {
                     name->local_to = NULL;
+                } else {
+                    printf("SUCCESSFULLY LOCALISED ");
+                    report_s(stdout, name->s);
+                    printf("\n");
                 }
+            } else {
+                name->local_to = NULL;
             }
-            if (name->local_to == NULL) {
-                name->count = a->name_count[name->type]++;
-            }
+        }
+        if (name->local_to == NULL) {
+            name->count = a->name_count[name->type]++;
         }
     }
 }

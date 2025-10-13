@@ -49,7 +49,7 @@ static void write_varname(struct generator * g, struct name * p) {
                  */
                 write_char(g, "sbi"[p->type]);
                 write_char(g, '_');
-                write_b(g, p->b);
+                write_s(g, p->s);
                 return;
             }
             int count = p->count;
@@ -72,7 +72,8 @@ static void write_varname(struct generator * g, struct name * p) {
             return;
         }
         default:
-            write_char(g, ch); write_char(g, '_');
+            write_char(g, "SIIrxg"[p->type]);
+            write_char(g, '_');
     }
     write_s(g, p->s);
 }
@@ -1491,11 +1492,12 @@ static void generate_define(struct generator * g, struct node * p) {
     /* Declare local variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
-            g->V[0] = name;
             switch (name->type) {
                 case t_boolean:
                 case t_integer:
-                    writef(g, "~Mint ~V0;~N", p);
+                    w(g, "~Mint ");
+                    write_varname(g, name);
+                    w(g, ";~N");
                     break;
             }
         }
