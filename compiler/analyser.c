@@ -1831,13 +1831,16 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
                 break;
 //            case c_define: /* FIXME? */
             case c_do:
+            case c_fail:
             case c_gopast:
             case c_goto:
             case c_try:
             case c_repeat:
                 r = always_set_before_use(p->left, func, v);
+#if 0
                 printf(" *** Handling %s\n", name_of_token(p->type));
                 printf("  r = %d\n", r);
+#endif
                 if (r == FAIL) return r;
                 /* FIXME: if the first command sets the variable and can't fail
                  * in the process we should return PASS here.
@@ -1871,6 +1874,9 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
             case c_rightslice:
             case c_debug:
             case c_substring:
+            case c_tolimit:
+            case c_false:
+            case c_true:
             case c_goto_grouping:
             case c_gopast_grouping:
             case c_goto_non:
@@ -1891,7 +1897,20 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
                 r = always_set_before_use(p->left, func, v);
                 if (r != UNKNOWN) return r;
                 break;
+            case c_assign:
+            case c_divideassign:
+            case c_minusassign:
+            case c_multiplyassign:
+            case c_plusassign:
             case c_slicefrom:
+                // These can count as a use of a variable.
+                if (p->name == v) {
+                    return FAIL;
+                }
+                break;
+            case c_dollar:
+                // For now we assume that `$x C` might use `x` before setting it.
+                // If string-$ sees wider use we can do better here.
                 if (p->name == v) {
                     return FAIL;
                 }
@@ -1914,8 +1933,6 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
         case c_as:
             abort();
 
-        case c_assign: /*OK*/
-
         case c_attach: /*OK*/
         case c_booltest: /*OK*/
         case c_not_booltest:
@@ -1929,16 +1946,6 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
             }
             break;
 
-        case c_dollar:
-            /* FIXME: Can set or read ... */
-
-        case c_divideassign:
-        case c_minusassign:
-        case c_multiplyassign:
-        case c_plusassign:
-            /* FIXME: use?  or a no-op for our purposes here? */
-
-
         case c_atleast:
 
         case c_atmark:
@@ -1951,8 +1958,6 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
         case c_divide:
 
         case c_externals:
-        case c_fail:
-        case c_false:
         case c_for:
         case c_get:
 
@@ -1978,9 +1983,7 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
 
         case c_strings:
 
-        case c_tolimit:
         case c_tomark:
-        case c_true:
 
         case c_neg:
             break;
