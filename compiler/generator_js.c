@@ -1120,19 +1120,19 @@ static void generate_define(struct generator * g, struct node * p) {
             // Suppress deno warnings that some local variables could be const.
             switch (name->type) {
                 case t_string:
-                    w(g, "~M// deno-lint-ignore prefer_const~N");
+                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** string */ ");
                     write_varname(g, name);
                     w(g, ";~N");
                     break;
                 case t_integer:
-                    w(g, "~M// deno-lint-ignore prefer_const~N");
+                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** number */ ");
                     write_varname(g, name);
                     w(g, ";~N");
                     break;
                 case t_boolean:
-                    w(g, "~M// deno-lint-ignore prefer_const~N");
+                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** boolean */ ");
                     write_varname(g, name);
                     w(g, ";~N");
