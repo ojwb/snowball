@@ -1762,239 +1762,225 @@ static void remove_dead_assignments(struct node * p, struct name * q) {
     if (p->right) remove_dead_assignments(p->right, q);
 }
 
-enum { FAIL = -1, UNKNOWN = 0, PASS = 1 };
+enum {
+    // Not set on at least one code path leading to a use.
+    FAIL = -1,
+    // Need to keep checking.
+    UNKNOWN = 0,
+    // Set on any code path leading to a use.
+    PASS = 1
+};
 
 /* Find out if every codepath from p to a use of variable v sets the variable
  * first.
  *
  * This isn't complete, but handles all cases in existing stemmers, and errs
- * by being too conservative.
+ * by being too conservative. FIXME: Does it handle all existing cases?
  *
  * func is the routine/external this code is in.
+ *
+ * FIXME: Review all the handling here.
  */
 static int always_set_before_use(struct node * p, struct node * func, struct name * v) {
-    int r;
-    while (p) {
-        switch (p->type) {
-            case c_call: {
-                /* Currently at least we know other functions can't touch v, so
-                 * we're only concerned to know if we can end up in a recursive
-                 * call to func. */
-                if (p->name->definition == func) {
-                    /* We've recursed into the function we're considering
-                     * localising this variable into, which means we can't
-                     * localise it.
-                     */
-                    return FAIL;
-                }
-                r = always_set_before_use(p->name->definition, func, v);
-                if (r != UNKNOWN) return r;
-                break;
-            }
-            case c_among: {
-                struct node * q = p->left;
-                int all_pass = true;
-                while (q) {
-                    r = always_set_before_use(q, func, v);
-                    if (r == FAIL) return r;
-                    all_pass = all_pass && (r == PASS);
-                    q = q->right;
-                }
-                if (all_pass) return PASS;
-                break;
-            }
-            case c_or: {
-                struct node * q = p->left;
-                int all_pass = true;
-                while (q) {
-                    r = always_set_before_use(q, func, v);
-                    if (r == FAIL) return r;
-                    all_pass = all_pass && (r == PASS);
-                    q = q->right;
-                }
-                if (all_pass) return PASS;
-                break;
-            }
-            case c_and: {
-                struct node * q = p->left;
-                while (q) {
-                    r = always_set_before_use(q, func, v);
-                    if (r != UNKNOWN) return r;
-                    q = q->right;
-                }
-                break;
-            }
-            case c_bra:
-            case c_test:
-                r = always_set_before_use(p->left, func, v);
-                if (r != UNKNOWN) return r;
-                break;
-//            case c_define: /* FIXME? */
-            case c_do:
-            case c_fail:
-            case c_gopast:
-            case c_goto:
-            case c_try:
-            case c_repeat:
-                r = always_set_before_use(p->left, func, v);
-#if 0
-                printf(" *** Handling %s\n", name_of_token(p->type));
-                printf("  r = %d\n", r);
-#endif
-                if (r == FAIL) return r;
-                /* FIXME: if the first command sets the variable and can't fail
-                 * in the process we should return PASS here.
+    if (!p) return UNKNOWN;
+    switch (p->type) {
+        case c_call: {
+            if (p->name->definition == func) {
+                /* We've recursed into the function we're considering
+                 * localising this variable into, which means we can't
+                 * localise it because then changes to the variable in
+                 * the nested call won't be reflected after it returns.
                  */
-                break;
-            case c_mathassign:
-                if (p->name == v)
-                    return PASS;
-                r = always_set_before_use(p->AE, func, v);
-                if (r == FAIL) return r;
-                break;
-            case c_assignto:
-            case c_set:
-            case c_setmark:
-            case c_sliceto:
-            case c_unset:
-                if (p->name == v)
-                    return PASS;
-                break;
-            case c_atlimit:
-            case c_backwards:
-            case c_delete:
-            case c_grouping:
-            case c_hop:
-            case c_leftslice:
-            case c_limit:
-            case c_literalstring:
-            case c_next:
-            case c_non:
-            case c_number:
-            case c_rightslice:
-            case c_debug:
-            case c_substring:
-            case c_tolimit:
-            case c_false:
-            case c_true:
-            case c_goto_grouping:
-            case c_gopast_grouping:
-            case c_goto_non:
-            case c_gopast_non:
-                break;
-            case c_functionend:
-                return PASS;
-            case c_eq:
-            case c_ne:
-            case c_gt:
-            case c_ge:
-            case c_lt:
-            case c_le:
-                break;
-            case c_setlimit:
-                r = always_set_before_use(p->aux, func, v);
-                if (r != UNKNOWN) return r;
-                r = always_set_before_use(p->left, func, v);
-                if (r != UNKNOWN) return r;
-                break;
-            case c_assign:
-            case c_divideassign:
-            case c_minusassign:
-            case c_multiplyassign:
-            case c_plusassign:
-            case c_slicefrom:
-                // These can count as a use of a variable.
-                if (p->name == v) {
-                    return FAIL;
-                }
-                break;
-            case c_dollar:
-                // For now we assume that `$x C` might use `x` before setting it.
-                // If string-$ sees wider use we can do better here.
-                if (p->name == v) {
-                    return FAIL;
-                }
-                break;
-            default:
-                /* Pessimistic assumption for cases we don't handle yet. */
-                /* FIXME: c_not used by kraaij_pohlmann */
-                printf("Assuming the worst about '%s' (%d)\n", name_of_token(p->type), p->type);
                 return FAIL;
+            }
+            // We know v is only referenced in the function we are checking.
+            return UNKNOWN;
         }
-        p = p->right;
-    }
+        case c_among: {
+            int all_pass = true;
+            struct among * x = p->among;
+            for (int i = 1; i <= x->command_count; i++) {
+                int r = always_set_before_use(x->commands[i - 1], func, v);
+                if (r == FAIL) return r;
+                all_pass = all_pass && (r == PASS);
+            }
+            if (all_pass) return PASS;
+            return UNKNOWN;
+        }
+        case c_or: {
+            struct node * q = p->left;
+            int all_pass = true;
+            while (q) {
+                int r = always_set_before_use(q, func, v);
+                if (r == FAIL) return r;
+                all_pass = all_pass && (r == PASS);
+                q = q->right;
+            }
+            if (all_pass) return PASS;
+            return UNKNOWN;
+        }
+        case c_and:
+        case c_bra: {
+            struct node * q = p->left;
+            while (q) {
+                int r = always_set_before_use(q, func, v);
+                if (r != UNKNOWN) return r;
+                q = q->right;
+            }
+            return UNKNOWN;
+        }
+        case c_backwards:
+        case c_not:
+        case c_reverse:
+        case c_test:
+            return always_set_before_use(p->left, func, v);
+//            case c_define: /* FIXME? */
+        case c_do:
+        case c_fail:
+        case c_gopast:
+        case c_goto:
+        case c_try:
+        case c_repeat: {
+            int r = always_set_before_use(p->left, func, v);
 #if 0
-
-            if (p->AE) { }
-            if (p->left) { }
-            if (p->aux) { } /* setlimit */
-
-            if (p->right) { }
-        case c_as:
-            abort();
-
-        case c_attach: /*OK*/
-        case c_booltest: /*OK*/
+            printf(" *** Handling %s\n", name_of_token(p->type));
+            printf("  r = %d\n", r);
+#endif
+            if (r == FAIL) return r;
+            /* FIXME: if the first command sets the variable and can't fail
+             * in the process we should return PASS here.
+             */
+            return UNKNOWN;
+        }
+        case c_atleast:
+        case c_loop:
+            if (always_set_before_use(p->AE, func, v) == FAIL)
+                       return FAIL;
+            return always_set_before_use(p->left, func, v);
+        case c_mathassign:
+            // Need to check AE before name because `$x = x + 1` uses the value
+            // of x before it sets it.
+            if (always_set_before_use(p->AE, func, v) == FAIL)
+                       return FAIL;
+            if (p->name == v)
+                return PASS;
+            return UNKNOWN;
+        case c_assignto:
+        case c_set:
+        case c_setmark:
+        case c_sliceto:
+        case c_unset:
+            if (p->name == v)
+                return PASS;
+            return UNKNOWN;
+        case c_atlimit:
+        case c_delete:
+        case c_grouping:
+        case c_leftslice:
+        case c_literalstring:
+        case c_next:
+        case c_non:
+        case c_number:
+        case c_rightslice:
+        case c_debug:
+        case c_substring:
+        case c_tolimit:
+        case c_false:
+        case c_true:
+        case c_goto_grouping:
+        case c_gopast_grouping:
+        case c_goto_non:
+        case c_gopast_non:
+            return UNKNOWN;
+        case c_atmark:
+        case c_hop:
+        case c_tomark:
+            if (always_set_before_use(p->AE, func, v) == FAIL)
+                return FAIL;
+            return UNKNOWN;
+        case c_assign:
+        case c_attach:
+        case c_booltest:
+        case c_insert:
+        case c_name:
         case c_not_booltest:
-        case c_insert: /*OK*/
-        case c_lenof: /*OK*/
-        case c_name: /*OK*/
-        case c_sizeof: /*OK*/
-            /* like c_slicefrom */
+        case c_slicefrom:
             if (p->name == v) {
                 return FAIL;
             }
-            break;
-
-        case c_atleast:
-
-        case c_atmark:
-        case c_backwardmode:
-
-        case c_booleans:
-        case c_cursor:
-
-        case c_decimal:
+            return UNKNOWN;
+        case c_functionend:
+            return PASS;
         case c_divide:
-
+        case c_minus:
+        case c_multiply:
+        case c_plus:
+        case c_eq:
+        case c_ne:
+        case c_gt:
+        case c_ge:
+        case c_lt:
+        case c_le: {
+            int r = always_set_before_use(p->left, func, v);
+            if (r != UNKNOWN) return r;
+            return always_set_before_use(p->right, func, v);
+        }
+        case c_neg:
+            return always_set_before_use(p->right, func, v);
+        case c_lenof:
+        case c_sizeof:
+            if (p->name == v) {
+                return FAIL;
+            }
+            return UNKNOWN;
+        case c_cursor:
+        case c_len:
+        case c_limit:
+        case c_maxint:
+        case c_minint:
+        case c_size:
+            return UNKNOWN;
+        case c_setlimit: {
+            int r = always_set_before_use(p->aux, func, v);
+            if (r != UNKNOWN) return r;
+            return always_set_before_use(p->left, func, v);
+        }
+        case c_divideassign:
+        case c_minusassign:
+        case c_multiplyassign:
+        case c_plusassign:
+            if (p->name == v) {
+                return FAIL;
+            }
+            if (always_set_before_use(p->AE, func, v) == FAIL) {
+                return FAIL;
+            }
+            return UNKNOWN;
+        case c_dollar:
+            // For now we assume that `$x C` might use `x` before setting it.
+            // If string-$ sees wider use we can do better here.
+            if (p->name == v) {
+                return FAIL;
+            }
+            return UNKNOWN;
+        case c_as:
+        case c_backwardmode:
+        case c_booleans:
+        case c_decimal:
         case c_externals:
         case c_for:
         case c_get:
-
         case c_groupings:
         case c_hex:
-
         case c_integers:
-        case c_ket:
-        case c_len:
-        case c_loop:
-
-        case c_maxint:
-        case c_minint:
-        case c_minus:
-        case c_multiply:
-        case c_not:
-        case c_plus:
-
-        case c_reverse:
         case c_routines:
-
-        case c_size:
-
         case c_strings:
-
-        case c_tomark:
-
-        case c_neg:
+            assert(0);
             break;
-
-
     }
-
-    /* No setting or use on the code path to here. */
-    return true;
-#endif
-    return PASS;
+    /* Pessimistic assumption for cases we don't handle yet. */
+    printf("Assuming the worst about '%s' (%d)\n", name_of_token(p->type), p->type);
+    return FAIL;
 }
 
 static void remove_unreachable_routine(struct analyser * a, struct name * q) {
@@ -2515,7 +2501,7 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
     for (struct name * name = a->names; name; name = name->next) {
         if (name->local_to != NULL) {
             if (localise_mask & (1 << name->type)) {
-                struct node * func = name->local_to->definition->left;
+                struct node * func = name->local_to->definition;
 #if 0
                 printf("always_set_before_use(a->program, ");
                 printf("<func>");
@@ -2523,14 +2509,11 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                 report_s(stdout, name->s);
                 printf(") = %d\n", always_set_before_use(a->program, func, name));
 #endif
-                if (always_set_before_use(func, func, name) != PASS) {
+                if (always_set_before_use(func->left, func, name) == FAIL) {
                     name->local_to = NULL;
-                } else {
-#if 0
-                    fprintf(stderr, "SUCCESSFULLY LOCALISED ");
+                    fprintf(stderr, "COULD NOT LOCALISE ");
                     report_s(stderr, name->s);
                     fprintf(stderr, "\n");
-#endif
                 }
             } else {
                 name->local_to = NULL;
