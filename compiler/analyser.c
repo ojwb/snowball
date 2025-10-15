@@ -1834,7 +1834,6 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
         case c_reverse:
         case c_test:
             return always_set_before_use(p->left, func, v);
-//            case c_define: /* FIXME? */
         case c_do:
         case c_fail:
         case c_gopast:
@@ -1855,13 +1854,12 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
         case c_atleast:
         case c_loop:
             if (always_set_before_use(p->AE, func, v) == FAIL)
-                       return FAIL;
+                return FAIL;
             return always_set_before_use(p->left, func, v);
         case c_mathassign:
-            // Need to check AE before name because `$x = x + 1` uses the value
-            // of x before it sets it.
+            // Check AE first: `x = x + 1` uses `x` before it sets it.
             if (always_set_before_use(p->AE, func, v) == FAIL)
-                       return FAIL;
+                return FAIL;
             if (p->name == v)
                 return PASS;
             return UNKNOWN;
@@ -1963,18 +1961,31 @@ static int always_set_before_use(struct node * p, struct node * func, struct nam
                 return FAIL;
             }
             return UNKNOWN;
-        case c_as:
         case c_backwardmode:
+        case c_define: // We always start from c_define's ->left.
         case c_booleans:
-        case c_decimal:
         case c_externals:
-        case c_for:
-        case c_get:
         case c_groupings:
-        case c_hex:
         case c_integers:
         case c_routines:
         case c_strings:
+            // Allowing these would allow checking the whole program.
+            assert(0);
+            return UNKNOWN;
+        case c_comment1:
+        case c_comment2:
+        case c_decimal:
+        case c_get:
+        case c_hex:
+        case c_stringdef:
+        case c_stringescapes:
+            // These are only use in the tokeniser.
+            assert(0);
+            break;
+        case c_as:
+        case c_for:
+        case c_ket:
+            // These shouldn't occur in this context.
             assert(0);
             break;
     }
