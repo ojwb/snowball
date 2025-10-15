@@ -461,6 +461,7 @@ extern int main(int argc, char * argv[]) {
             }
             *next_input_ptr = NULL;
             switch (o->target_lang) {
+                case LANG_ADA:
                 case LANG_C:
                 case LANG_CPLUSPLUS:
                 case LANG_CSHARP:
@@ -483,9 +484,8 @@ extern int main(int argc, char * argv[]) {
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;
-                case LANG_ADA:
                 case LANG_DART:
-                    // FIXME: Implement for these.
+                    // FIXME: Implement.
                     localise_mask = 0;
                     break;
             }
