@@ -26,6 +26,7 @@ static struct str * vars_newname(struct generator * g) {
 /* Write routines for items from the syntax tree */
 
 static void write_varname(struct generator * g, struct name * p) {
+    /* Name local variables the same. */
     int ch = "SBIrxG"[p->type];
     if (p->type != t_external) {
         write_char(g, ch);
@@ -37,6 +38,8 @@ static void write_varname(struct generator * g, struct name * p) {
 static void write_varref(struct generator * g, struct name * p) {
     if (p->type == t_grouping) {
         write_string(g, "self::");
+    } else if (p->local_to) {
+        write_char(g, '$');
     } else {
         write_string(g, "$this->");
     }
@@ -1362,6 +1365,7 @@ static void generate_members(struct generator * g) {
     int wrote_members = false;
 
     for (struct name * q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         switch (q->type) {
             case t_string:
                 w(g, "~Mprivate string $");

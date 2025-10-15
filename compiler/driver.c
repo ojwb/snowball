@@ -467,6 +467,7 @@ extern int main(int argc, char * argv[]) {
                 case LANG_GO:
                 case LANG_JAVA:
                 case LANG_PASCAL:
+                case LANG_PHP:
                 case LANG_RUST:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
@@ -484,7 +485,6 @@ extern int main(int argc, char * argv[]) {
                     break;
                 case LANG_ADA:
                 case LANG_DART:
-                case LANG_PHP:
                     // FIXME: Implement for these.
                     localise_mask = 0;
                     break;
