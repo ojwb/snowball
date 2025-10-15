@@ -478,6 +478,9 @@ extern int main(int argc, char * argv[]) {
                      * modify them in place anyway, so we might as well localise
                      * string variables too.
                      *
+                     * Microbenchmarking with timeit shows localising string
+                     * variables is faster for Python.
+                     *
                      * FIXME: That's at the language level - perhaps in reality
                      * things are optimised to avoid needless string copying
                      * and we should profile here to check what's best.
