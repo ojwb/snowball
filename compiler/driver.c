@@ -472,6 +472,7 @@ extern int main(int argc, char * argv[]) {
                 case LANG_RUST:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
+                case LANG_DART:
                 case LANG_JAVASCRIPT:
                 case LANG_PYTHON:
                     /* Javascript and Python strings are immutable, so we can't
@@ -486,10 +487,6 @@ extern int main(int argc, char * argv[]) {
                      * and we should profile here to check what's best.
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
-                    break;
-                case LANG_DART:
-                    // FIXME: Implement.
-                    localise_mask = 0;
                     break;
             }
             read_program(a, localise_mask);
