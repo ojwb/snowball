@@ -27,7 +27,7 @@ static struct str * vars_newname(struct generator * g) {
 /* Write routines for items from the syntax tree */
 
 static void write_varname(struct generator * g, struct name * p) {
-    /* Name local variables the same. */
+    // We use the same naming scheme for both global and local variables.
     write_char(g, "SbirrG"[p->type]);
     write_char(g, '_');
     write_s(g, p->s);

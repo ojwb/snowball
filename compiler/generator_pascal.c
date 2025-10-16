@@ -53,6 +53,8 @@ static void write_varname(struct generator * g, struct name * p) {
          * seems more helpful to leave those alone and encourage snowball
          * program authors to avoid naming externals which only differ by
          * case.
+         *
+         * We use the same naming scheme for both global and local variables.
          */
         int len = SIZE(p->s);
         int lower_pending = 0;

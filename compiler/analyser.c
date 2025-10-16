@@ -230,8 +230,8 @@ handle_as_name:
                     p->s = copy_s(t->s);
                     p->type = type;
                     /* Delay assigning counts until after we've eliminated
-                     * variables whose values are never used and checked if
-                     * any variables of this type can be localised.
+                     * variables whose values are never used and checked for
+                     * variables which can be localised.
                      */
                     p->count = -1;
                     p->declaration_line_number = t->line_number;
@@ -1771,16 +1771,16 @@ enum {
     SET_BEFORE_ANY_USE
 };
 
-/* Find out if every codepath from p to a use of variable v sets the variable
- * first.
+/* Find out if every codepath in the command with node p to a use of variable v
+ * sets v first.
  *
  * The checks err towards being too conservative and may report that v can't be
  * safely localised when it can, but they allow localising all variables which
  * can be trivially made local in existing stemmers.
  *
- * p: the node of the command to check.
+ * p:    the node of the command to check.
  * func: the c_define of the routine/external this code is in.
- * v: the variable to check.
+ * v:    the variable to check.
  */
 static int always_set_before_use_(struct node * p, struct node * func,
                                   struct name * v) {

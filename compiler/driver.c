@@ -475,16 +475,18 @@ extern int main(int argc, char * argv[]) {
                 case LANG_DART:
                 case LANG_JAVASCRIPT:
                 case LANG_PYTHON:
-                    /* Javascript and Python strings are immutable, so we can't
-                     * modify them in place anyway, so we might as well localise
-                     * string variables too.
-                     *
-                     * Microbenchmarking with timeit shows localising string
-                     * variables is faster for Python.
+                    /* Dart, Javascript and Python strings are immutable, so we
+                     * can't modify them in place anyway, so we might as well
+                     * localise string variables too.
                      *
                      * FIXME: That's at the language level - perhaps in reality
                      * things are optimised to avoid needless string copying
                      * and we should profile here to check what's best.
+                     *
+                     * FIXME: Check for all target languages.
+                     *
+                     * Microbenchmarking with timeit shows localising string
+                     * variables is faster for Python.
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;

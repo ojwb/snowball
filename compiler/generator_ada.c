@@ -28,6 +28,7 @@ static struct str * vars_newname(struct generator * g) {
 
 static void write_varname(struct generator * g, struct name * p) {
     if (p->type != t_external) {
+        // We use the same naming scheme for both global and local variables.
         write_char(g, "SBIRXG"[p->type]);
         write_char(g, '_');
     }

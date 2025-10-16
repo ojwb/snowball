@@ -36,9 +36,9 @@ static void write_varname(struct generator * g, struct name * p) {
             write_string(g, "__");
             /* FALLTHRU */
         default: {
-            /* Name local variables the same. */
-            int ch = "SBIrxg"[p->type];
-            write_char(g, ch);
+            // We use the same naming scheme for both global and local
+            // variables.
+            write_char(g, "SBIrxg"[p->type]);
             write_char(g, '_');
             break;
         }
