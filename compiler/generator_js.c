@@ -1116,22 +1116,18 @@ static void generate_define(struct generator * g, struct node * p) {
     /* Declare local variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
-            // Suppress deno warnings that some local variables could be const.
             switch (name->type) {
                 case t_string:
-                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** string */ ");
                     write_varname(g, name);
                     w(g, ";~N");
                     break;
                 case t_integer:
-                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** number */ ");
                     write_varname(g, name);
                     w(g, ";~N");
                     break;
                 case t_boolean:
-                    w(g, "~M// deno-lint-ignore prefer-const~N");
                     w(g, "~Mlet /** boolean */ ");
                     write_varname(g, name);
                     w(g, ";~N");
@@ -1144,7 +1140,6 @@ static void generate_define(struct generator * g, struct node * p) {
         // among_var is only assigned to, but the initialisation can be
         // generated in a nested block so it seems hard to declare it as
         // const and still have it visible when we want to use it.
-        w(g, "~M// deno-lint-ignore prefer-const~N");
         w(g, "~Mlet /** number */ among_var;~N");
     }
     str_clear(g->failure_str);
@@ -1509,10 +1504,19 @@ extern void generate_program_js(struct generator * g) {
 
     write_start_comment(g, "// ", NULL);
 
-    // We generate deno-lint-ignore which may not all be used.
-    // Expressions in conditionals may be constant.
-    // Empty blocks may be generated in some cases.
-    w(g, "// deno-lint-ignore-file ban-unused-ignore no-constant-condition no-empty~N~N");
+    // Disable some deno-lint warnings which the generated code can trigger.
+    w(g, "// deno-lint-ignore-file"
+         // Some of our generated deno-lint-ignore comments may not be used.
+         " ban-unused-ignore"
+         // Expressions in conditionals may be constant.
+         " no-constant-condition"
+         // Empty blocks may be generated in some cases.
+         " no-empty"
+         // among_var is only assigned to once per `among`, but is declared at
+         // the start of the function and may be initialised in a nested block.
+         //
+         // Some localised variables may only be assigned to once.
+         " prefer-const~N~N");
 
     generate_amongs(g);
     generate_groupings(g);
