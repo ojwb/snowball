@@ -462,15 +462,15 @@ extern int main(int argc, char * argv[]) {
             *next_input_ptr = NULL;
             switch (o->target_lang) {
                 case LANG_ADA:
-                case LANG_C:
-                case LANG_CPLUSPLUS:
-                case LANG_CSHARP:
-                case LANG_GO:
-                case LANG_JAVA:
+                case LANG_C: //
+                case LANG_CPLUSPLUS: //
+                case LANG_CSHARP: //
+                case LANG_JAVA: //
                 case LANG_RUST:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
                 case LANG_DART:
+                case LANG_GO:
                 case LANG_PASCAL:
                 case LANG_PHP:
                 case LANG_PYTHON:
@@ -498,8 +498,17 @@ extern int main(int argc, char * argv[]) {
                      *   define r as (-> s s)
                      *   define stem as ( next [tolimit] loop 100000000 do r )
                      *
-                     * Timing for Rust (1000000000) shows localising string
-                     * variables is slightly slower.
+                     * Timing this for Go (1000000000) shows localising string
+                     * variables is about 10% faster.
+                     *
+                     * The same microbenchmark shows localising string variables
+                     * isn't always better:
+                     *
+                     * Timing this for Ada (1000000000) shows localising string
+                     * variables is signficantly slower (13.7s vs 5.2s).
+                     *
+                     * Timing this for Rust (1000000000) shows localising
+                     * string variables is slightly slower.
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;
