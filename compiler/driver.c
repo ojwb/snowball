@@ -467,11 +467,11 @@ extern int main(int argc, char * argv[]) {
                 case LANG_CSHARP:
                 case LANG_GO:
                 case LANG_JAVA:
-                case LANG_PASCAL:
                 case LANG_RUST:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
                 case LANG_DART:
+                case LANG_PASCAL:
                 case LANG_PHP:
                 case LANG_PYTHON:
                 case LANG_JAVASCRIPT:
@@ -488,14 +488,18 @@ extern int main(int argc, char * argv[]) {
                      * Microbenchmarking with timeit shows localising string
                      * variables is faster for Python.
                      *
-                     * Timing this program for JS and PHP shows localising
-                     * string variables is slightly faster:
+                     * Timing this program for JS (with 10000000), Pascal and
+                     * PHP shows localising string variables is slightly
+                     * faster:
                      *
                      *   strings ( s )
                      *   routines ( r )
                      *   externals ( stem )
                      *   define r as (-> s s)
-                     *   define stem as ( next [tolimit] loop 10000000 do r )
+                     *   define stem as ( next [tolimit] loop 100000000 do r )
+                     *
+                     * Timing for Rust (1000000000) shows localising string
+                     * variables is slightly slower.
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;

@@ -1068,6 +1068,12 @@ static void generate_define(struct generator * g, struct node * p) {
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
             switch (name->type) {
+                case t_string:
+                    // String variables not localised for Rust currently.
+                    w(g, "~Mlet mut ");
+                    write_varname(g, name);
+                    w(g, " : String;~N");
+                    break;
                 case t_integer:
                     w(g, "~Mlet mut ");
                     write_varname(g, name);
