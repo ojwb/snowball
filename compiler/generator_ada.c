@@ -1166,6 +1166,9 @@ static void generate_define(struct generator * g, struct node * p) {
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == p->name) {
             switch (name->type) {
+                case t_string:
+                    assert(0);
+                    break;
                 case t_integer:
                     w(g,  "      ");
                     write_varname(g, name);

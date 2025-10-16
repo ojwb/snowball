@@ -1058,6 +1058,16 @@ static void generate_define(struct generator * g, struct node * p) {
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
             switch (name->type) {
+                case t_string:
+                    // String variables not localised for C# currently.
+                    w(g, "~M");
+                    write_string(g, g->options->string_class);
+                    write_char(g, ' ');
+                    write_varname(g, name);
+                    write_string(g, " = new ");
+                    write_string(g, g->options->string_class);
+                    w(g, "();~N");
+                    break;
                 case t_integer:
                     w(g, "~Mint ");
                     write_varname(g, name);
