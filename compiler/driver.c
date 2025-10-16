@@ -470,10 +470,10 @@ extern int main(int argc, char * argv[]) {
                 case LANG_PASCAL:
                 case LANG_PHP:
                 case LANG_RUST:
+                case LANG_JAVASCRIPT:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
                 case LANG_DART:
-                case LANG_JAVASCRIPT:
                 case LANG_PYTHON:
                     /* Dart, Javascript and Python strings are immutable, so we
                      * can't modify them in place anyway, so we might as well
@@ -487,6 +487,8 @@ extern int main(int argc, char * argv[]) {
                      *
                      * Microbenchmarking with timeit shows localising string
                      * variables is faster for Python.
+                     *
+                     * JS fractionally slower in microbenchmark?
                      */
                     localise_mask = (1 << t_boolean) | (1 << t_integer) | (1 << t_string);
                     break;
