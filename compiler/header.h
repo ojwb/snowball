@@ -211,7 +211,6 @@ struct name {
     byte * s;
     byte type;                  /* t_string etc */
     byte mode;                  /* for routines, externals (m_forward, etc) */
-    byte referenced;
     byte value_used;            /* (For variables) is its value ever used? */
     byte initialised;           /* (For variables) is it ever initialised? */
     byte used_in_definition;    /* (grouping) used in grouping definition? */
@@ -223,6 +222,8 @@ struct name {
     // Reachable names are then numbered 0, 1, 2, ... with separate numbering
     // per type.
     int count;
+    // Number of references to this name.
+    int references;
     struct grouping * grouping; /* for grouping names */
     struct node * used;         /* First use, or NULL if not used */
     struct name * local_to;     /* Local to one routine/external */
@@ -328,6 +329,8 @@ enum name_types {
       3 |  routine
       4 |  external
       5 |  grouping
+
+    Only the C generator currently uses this, and only for the first 3 types.
 */
 
 struct analyser {
@@ -364,7 +367,11 @@ extern void print_program(struct analyser * a);
 extern struct analyser * create_analyser(struct tokeniser * t);
 extern void close_analyser(struct analyser * a);
 
-extern void read_program(struct analyser * a);
+/** Read and analyse the program.
+ *
+ *  @param localise_mask  bitmask of variable types the generator can localise
+ */
+extern void read_program(struct analyser * a, unsigned localise_mask);
 
 struct generator {
     struct analyser * analyser;

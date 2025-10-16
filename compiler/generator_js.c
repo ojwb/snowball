@@ -26,16 +26,16 @@ static struct str * vars_newname(struct generator * g) {
 /* Write routines for items from the syntax tree */
 
 static void write_varname(struct generator * g, struct name * p) {
-    int ch = "SBIrxg"[p->type];
     if (p->type != t_external) {
-        write_char(g, ch);
+        // We use the same naming scheme for both global and local variables.
+        write_char(g, "SBIrxg"[p->type]);
         write_char(g, '_');
     }
     write_s(g, p->s);
 }
 
 static void write_varref(struct generator * g, struct name * p) {
-    if (p->type != t_grouping) {
+    if (p->type != t_grouping && p->local_to == NULL) {
         w(g, "this.#");
     }
     write_varname(g, p);
@@ -1113,12 +1113,34 @@ static void generate_define(struct generator * g, struct node * p) {
     g->next_label = 0;
     g->var_number = 0;
 
+    /* Declare local variables. */
+    for (struct name * name = g->analyser->names; name; name = name->next) {
+        if (name->local_to == q) {
+            switch (name->type) {
+                case t_string:
+                    w(g, "~Mlet /** string */ ");
+                    write_varname(g, name);
+                    w(g, ";~N");
+                    break;
+                case t_integer:
+                    w(g, "~Mlet /** number */ ");
+                    write_varname(g, name);
+                    w(g, ";~N");
+                    break;
+                case t_boolean:
+                    w(g, "~Mlet /** boolean */ ");
+                    write_varname(g, name);
+                    w(g, ";~N");
+                    break;
+            }
+        }
+    }
+
     if (q->amongvar_needed) {
-        // among_var is only assigned to, but the initialisation can be
-        // generated in a nested block so it seems hard to declare it as
+        // The "among var" (`a`) is only assigned to, but the initialisation
+        // can be generated in a nested block so it seems hard to declare it as
         // const and still have it visible when we want to use it.
-        w(g, "~M// deno-lint-ignore prefer-const~N");
-        w(g, "~Mlet /** number */ among_var;~N");
+        w(g, "~Mlet /** number */ a;~N");
     }
     str_clear(g->failure_str);
     g->failure_label = x_return;
@@ -1158,9 +1180,9 @@ static void generate_substring(struct generator * g, struct node * p) {
     g->I[0] = x->number;
 
     if (x->amongvar_needed) {
-        writef(g, "~Mamong_var = this.find_among~S0(a_~I0~F);~N", p);
+        writef(g, "~Ma = this.find_among~S0(a_~I0~F);~N", p);
         if (!x->always_matches) {
-            write_failure_if(g, "among_var === 0", p);
+            write_failure_if(g, "a === 0", p);
         }
     } else if (x->always_matches) {
         writef(g, "~Mthis.find_among~S0(a_~I0~F);~N", p);
@@ -1188,7 +1210,7 @@ static void generate_among(struct generator * g, struct node * p) {
         /* Only one outcome ("no match" already handled). */
         generate(g, x->commands[0]);
     } else if (x->command_count > 0) {
-        w(g, "~Mswitch (among_var) {~N~+");
+        w(g, "~Mswitch (a) {~N~+");
         for (int i = 1; i <= x->command_count; i++) {
             g->I[0] = i;
             w(g, "~Mcase ~I0: {~N~+");
@@ -1444,6 +1466,7 @@ static void generate_members(struct generator * g) {
     int wrote_members = false;
 
     for (struct name * q = g->analyser->names; q; q = q->next) {
+        if (q->local_to) continue;
         switch (q->type) {
             case t_string:
                 w(g, "~M#");
@@ -1481,10 +1504,20 @@ extern void generate_program_js(struct generator * g) {
 
     write_start_comment(g, "// ", NULL);
 
-    // We generate deno-lint-ignore which may not all be used.
-    // Expressions in conditionals may be constant.
-    // Empty blocks may be generated in some cases.
-    w(g, "// deno-lint-ignore-file ban-unused-ignore no-constant-condition no-empty~N~N");
+    // Disable some deno-lint warnings which the generated code can trigger.
+    w(g, "// deno-lint-ignore-file"
+         // Some of our generated deno-lint-ignore comments may not be used.
+         " ban-unused-ignore"
+         // Expressions in conditionals may be constant.
+         " no-constant-condition"
+         // Empty blocks may be generated in some cases.
+         " no-empty"
+         // Among var `a` is only assigned to once per `among`, but is declared
+         // at the start of the function and may be initialised in a nested
+         // block.
+         //
+         // Some localised variables may only be assigned to once.
+         " prefer-const~N~N");
 
     generate_amongs(g);
     generate_groupings(g);
