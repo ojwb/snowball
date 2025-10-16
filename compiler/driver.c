@@ -470,11 +470,11 @@ extern int main(int argc, char * argv[]) {
                 case LANG_PASCAL:
                 case LANG_PHP:
                 case LANG_RUST:
-                case LANG_JAVASCRIPT:
                     localise_mask = (1 << t_boolean) | (1 << t_integer);
                     break;
                 case LANG_DART:
                 case LANG_PYTHON:
+                case LANG_JAVASCRIPT:
                     /* Dart, Javascript and Python strings are immutable, so we
                      * can't modify them in place anyway, so we might as well
                      * localise string variables too.
