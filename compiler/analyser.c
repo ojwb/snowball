@@ -1950,12 +1950,16 @@ static int always_set_before_use_(struct node * p, struct node * func,
             }
             return UNKNOWN;
         case c_dollar:
-            // For now we assume that `$x C` might use `x` before setting it.
-            // If string-$ sees wider use we can do better here.
-            if (p->name == v) {
-                return USE_BEFORE_SET;
+            if (p->name != v) {
+                return UNKNOWN;
             }
-            return UNKNOWN;
+            if (p->left->type == c_assign) {
+                // Special-case `$x = S` because it's easy to handle.
+                return SET_BEFORE_ANY_USE;
+            }
+            // Otherwise, for now we assume that `$x C` might use `x` before
+            // setting it.  If string-$ sees wider use we can do better here.
+            return USE_BEFORE_SET;
         case c_backwardmode:
         case c_define: // We always start from c_define's ->left.
         case c_booleans:
