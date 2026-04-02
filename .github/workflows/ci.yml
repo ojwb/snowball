@@ -243,7 +243,10 @@ jobs:
       run: $MAKE check_python python="${{ matrix.PYTHON || 'python' }}" THIN_FACTOR="${{ matrix.THIN_FACTOR }}"
     - name: Test Java
       if: matrix.JAVA && matrix.JAVAC
-      run: $MAKE check_java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}" JAVACFLAGS="${{ matrix.JAVACFLAGS }}"
+      run: |
+        $MAKE java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}" JAVACFLAGS="${{ matrix.JAVACFLAGS }}"
+        cat -n java/org/tartarus/snowball/ext/tailcallStemmer.java || true
+        $MAKE check_java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}" JAVACFLAGS="${{ matrix.JAVACFLAGS }}"
     - name: Test Dart
       if: matrix.DART
       run: $MAKE check_dart DART="${{ matrix.DART }}"
