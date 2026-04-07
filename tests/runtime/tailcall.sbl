@@ -10,6 +10,6 @@ define a as
 
 define stem as (
     $x = limit
-    not a or fail='a did not signal t'
+    a or fail='a did not signal t'
     $(cursor == 0) or fail='a did not restore cursor'
 )
