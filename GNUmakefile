@@ -325,6 +325,7 @@ clean:
 	rm -rf $(CLEANDIRS)
 	rm -rf ada/obj dist
 	rm -rf $(DART_BUILD_ARTIFACTS)
+	-rmdir $(ada_src_dir)
 	-rmdir $(c_src_dir)
 	-rmdir $(js_output_dir)
 	-rmdir $(php_output_dir)
