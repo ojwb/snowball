@@ -231,6 +231,8 @@ jobs:
         tar xf ../dist/libstemmer_c-*.tar.gz
         cd libstemmer_c-*
         $MAKE CFLAGS="${{ matrix.CFLAGS_DIST_BUILD }}"
+        cd ../..
+        rm -rf tmp
     - name: Test C
       if: matrix.c_tests
       run: $MAKE check CC="$CC"
@@ -283,11 +285,8 @@ jobs:
       run: $MAKE check_ada gprbuild="${{ matrix.gprbuild }}"
     - name: make clean
       run: |
-        rm -rf $(STEMMING_DATA)
-        # Not sure what tmp/ is created by.
-        ls -l tmp || true
-        rm -f go.mod
-        rm -rf tmp
+        rm -rf ${{ env.STEMMING_DATA }}
+        rm -f go.mod .zigcache
         # `.ccache`/`.sccache` is specific to CI.  We can't just delete it here
         # or else the cache won't be saved.
         git status --porcelain=v1|grep -v '^?? \.s\?ccache/$'|grep '^' && { echo 'The generated files listed above are not in .gitignore' ; exit 1; }; true
