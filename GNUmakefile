@@ -308,27 +308,13 @@ clean:
 	      libstemmer.a stemwords$(EXEEXT) \
               libstemmer/modules.h \
               libstemmer/modules_utf8.h \
-	      $(ADA_SOURCES) ada/bin/generate ada/bin/stemwords \
-	      $(C_LIB_SOURCES) $(C_LIB_HEADERS) $(C_LIB_OBJECTS) \
-	      $(C_OTHER_SOURCES) $(C_OTHER_HEADERS) $(C_OTHER_OBJECTS) \
-	      $(DART_SOURCES) \
-	      $(go_src_dir)/*/*_stemmer.go $(go_src_main_dir)/stemwords/algorithms.go \
-	      $(JAVA_SOURCES) $(JAVA_CLASSES) $(JAVA_RUNTIME_CLASSES) \
-	      $(JS_SOURCES) \
-	      $(PASCAL_SOURCES) pascal/stemwords.dpr pascal/stemwords pascal/*.o pascal/*.ppu \
-	      $(PHP_SOURCES) \
-	      $(ZIG_SOURCES) zig/stemwords$(EXEEXT) \
 	      stemtest$(EXEEXT) $(STEMTEST_OBJECTS) \
               libstemmer/mkinc.mak libstemmer/mkinc_utf8.mak \
               libstemmer/libstemmer.c libstemmer/libstemmer_utf8.c \
 	      algorithms.mk
 	rm -rf $(CLEANDIRS)
-	rm -rf ada/obj dist
+	rm -rf dist
 	rm -rf $(DART_BUILD_ARTIFACTS)
-	-rmdir $(ada_src_dir)
-	-rmdir $(c_src_dir)
-	-rmdir $(js_output_dir)
-	-rmdir $(php_output_dir)
 
 update_version:
 	perl -pi -e '/SNOWBALL_VERSION/ && s/\d+\.\d+\.\d+/$(SNOWBALL_VERSION)/' \
@@ -774,6 +760,8 @@ ada/bin/generate:
 ada/bin/stemwords: $(ADA_SOURCES) ada/src/stemmer.adb ada/src/stemmer.ads ada/src/stemwords.adb
 	cd ada && $(gprbuild) -Pstemwords -p
 
+CLEANDIRS += $(ada_src_dir) ada/bin ada/obj
+
 ###############################################################################
 # C
 ###############################################################################
@@ -829,6 +817,8 @@ check_koi8r_%: $(STEMMING_DATA)/% stemwords$(EXEEXT)
 	    ./stemwords -c KOI8_R -l $* |\
 	    $(ICONV) -f KOI8-R -t UTF-8 |\
 	    $(DIFF) -u '$</output.txt' -
+
+CLEANDIRS += $(c_src_dir)
 
 ###############################################################################
 # C#
@@ -889,6 +879,9 @@ check_dart_%: $(STEMMING_DATA_ABS)/%
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
 
+CLEANDIRS += $(dart_src_dir)
+CLEANFILES += $(dart_runtime_dir)/algorithms.dart
+
 ###############################################################################
 # Go
 ###############################################################################
@@ -913,6 +906,9 @@ check_go_%: $(STEMMING_DATA_ABS)/%
 	      $(DIFF) -u $</output.txt - ;\
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
+
+CLEANDIRS += go_src_dir
+CLEANFILES += $(go_src_main_dir)/stemwords/algorithms.go
 
 ###############################################################################
 # Java
@@ -944,6 +940,9 @@ check_java_%: $(STEMMING_DATA_ABS)/%
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
 
+CLEANDIRS += $(java_src_dir)
+CLEANFILES += $(JAVA_RUNTIME_CLASSES)
+
 ###############################################################################
 # Javascript
 ###############################################################################
@@ -970,6 +969,8 @@ check_js_%: $(STEMMING_DATA)/%
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
 
+CLEANDIRS += $(js_output_dir)
+
 ###############################################################################
 # Pascal
 ###############################################################################
@@ -989,6 +990,8 @@ check_pascal_%: $(STEMMING_DATA_ABS)/%
 	    ./pascal/stemwords -l $* |\
 	    $(ICONV) -f ISO-8859-1 -t UTF-8 |\
 	    $(DIFF) -u $</output.txt -
+
+CLEANFILES += $(PASCAL_SOURCES) pascal/stemwords.dpr pascal/stemwords pascal/*.o pascal/*.ppu
 
 ###############################################################################
 # PHP
@@ -1015,6 +1018,8 @@ check_php_%: $(STEMMING_DATA)/%
 	      $(DIFF) -u $</output.txt - ;\
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
+
+CLEANDIRS += $(php_output_dir)
 
 ###############################################################################
 # Python
@@ -1046,7 +1051,7 @@ check_python_stemwords: $(PYTHON_STEMWORDS_SOURCE) $(PYTHON_SOURCES)
 	cp -a $(PYTHON_SOURCES) python_check/snowballstemmer
 	cp -a $(PYTHON_STEMWORDS_SOURCE) python_check/
 
-CLEANDIRS += python_check python_out
+CLEANDIRS += python_check $(python_output_dir)
 
 ###############################################################################
 # Rust
@@ -1103,6 +1108,8 @@ check_zig_%: $(STEMMING_DATA_ABS)/%
 	      $(DIFF) -u $</output.txt - ;\
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
+
+CLEANFILES += $(ZIG_SOURCES) zig/stemwords$(EXEEXT)
 
 ###############################################################################
 # Runtime tests
