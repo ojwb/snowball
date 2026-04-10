@@ -248,9 +248,7 @@ jobs:
       run: $MAKE check_java JAVA="${{ matrix.JAVA }}" JAVAC="${{ matrix.JAVAC }}" JAVACFLAGS="${{ matrix.JAVACFLAGS }}"
     - name: Test Dart
       if: matrix.DART
-      run: |
-        $MAKE check_dart DART="${{ matrix.DART }}"
-        ls -ld dart/.dart_tool dart/pubspec.lock dart/.dart_deps
+      run: $MAKE check_dart DART="${{ matrix.DART }}"
     - name: Test C#
       if: matrix.MCS
       run: $MAKE check_csharp MCS="${{ matrix.MCS }}"

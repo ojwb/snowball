@@ -287,7 +287,6 @@ STEMWORDS_OBJECTS=$(STEMWORDS_SOURCES:.c=.o)
 STEMTEST_OBJECTS=$(STEMTEST_SOURCES:.c=.o)
 C_LIB_OBJECTS = $(C_LIB_SOURCES:.c=.o)
 C_OTHER_OBJECTS = $(C_OTHER_SOURCES:.c=.o)
-DART_BUILD_ARTIFACTS = dart/.dart_tool dart/pubspec.lock dart/.dart_deps
 JAVA_CLASSES = $(JAVA_SOURCES:.java=.class)
 JAVA_RUNTIME_CLASSES=$(JAVA_RUNTIME_SOURCES:.java=.class)
 
@@ -302,19 +301,8 @@ algorithms.mk: GNUmakefile libstemmer/mkalgorithms.pl $(MODULES)
 	libstemmer/mkalgorithms.pl algorithms.mk $(MODULES)
 
 clean:
-	rm -f $(CLEANFILES) \
-	      $(COMPILER_OBJECTS) $(RUNTIME_OBJECTS) \
-	      $(LIBSTEMMER_OBJECTS) $(LIBSTEMMER_UTF8_OBJECTS) $(STEMWORDS_OBJECTS) snowball$(EXEEXT) \
-	      libstemmer.a stemwords$(EXEEXT) \
-              libstemmer/modules.h \
-              libstemmer/modules_utf8.h \
-	      stemtest$(EXEEXT) $(STEMTEST_OBJECTS) \
-              libstemmer/mkinc.mak libstemmer/mkinc_utf8.mak \
-              libstemmer/libstemmer.c libstemmer/libstemmer_utf8.c \
-	      algorithms.mk
+	rm -f $(CLEANFILES)
 	rm -rf $(CLEANDIRS)
-	rm -rf dist
-	rm -rf $(DART_BUILD_ARTIFACTS)
 
 update_version:
 	perl -pi -e '/SNOWBALL_VERSION/ && s/\d+\.\d+\.\d+/$(SNOWBALL_VERSION)/' \
@@ -354,11 +342,19 @@ $(COMPILER_OBJECTS): $(COMPILER_HEADERS)
 
 # List of files/glob patterns to remove on clean.  This gets appended to by
 # each target language section.
-CLEANFILES :=
+CLEANFILES := $(COMPILER_OBJECTS) $(RUNTIME_OBJECTS) \
+	      $(LIBSTEMMER_OBJECTS) $(LIBSTEMMER_UTF8_OBJECTS) $(STEMWORDS_OBJECTS) snowball$(EXEEXT) \
+	      libstemmer.a stemwords$(EXEEXT) \
+              libstemmer/modules.h \
+              libstemmer/modules_utf8.h \
+	      stemtest$(EXEEXT) $(STEMTEST_OBJECTS) \
+              libstemmer/mkinc.mak libstemmer/mkinc_utf8.mak \
+              libstemmer/libstemmer.c libstemmer/libstemmer_utf8.c \
+	      algorithms.mk
 
 # List of directories to recursively remove on clean.  This gets appended to by
 # each target language section.
-CLEANDIRS :=
+CLEANDIRS := dist
 
 # Ada
 
@@ -879,8 +875,8 @@ check_dart_%: $(STEMMING_DATA_ABS)/%
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
 
-CLEANDIRS += $(dart_src_dir)
-CLEANFILES += $(dart_runtime_dir)/algorithms.dart
+CLEANDIRS += $(dart_src_dir) dart/.dart_tool
+CLEANFILES += $(dart_runtime_dir)/algorithms.dart dart/.dart_deps dart/pubspec.lock
 
 ###############################################################################
 # Go
