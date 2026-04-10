@@ -286,7 +286,7 @@ jobs:
     - name: make clean
       run: |
         rm -rf ${{ env.STEMMING_DATA }}
-        rm -f go.mod .zigcache
+        rm -f go.mod .zig-cache
         # `.ccache`/`.sccache` is specific to CI.  We can't just delete it here
         # or else the cache won't be saved.
         git status --porcelain=v1|grep -v '^?? \.s\?ccache/$'|grep '^' && { echo 'The generated files listed above are not in .gitignore' ; exit 1; }; true
