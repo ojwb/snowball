@@ -261,6 +261,7 @@ class BaseStemmer {
             // w[0]: string, w[1]: substring_i, w[2]: result, w[3]: function (optional)
             const w = v[k];
             let i2;
+            // @ts-expect-error: string|number always number here.
             for (i2 = common; i2 < w[0].length; i2++)
             {
                 if (c + common === l)
@@ -268,6 +269,7 @@ class BaseStemmer {
                     diff = -1;
                     break;
                 }
+                // @ts-expect-error: string|number always number here.
                 diff = this.current.charCodeAt(c + common) - w[0].charCodeAt(i2);
                 if (diff !== 0) break;
                 common++;
@@ -297,17 +299,23 @@ class BaseStemmer {
         }
         do {
             const w = v[i];
+            // @ts-expect-error: string|number always number here.
             if (common_i >= w[0].length)
             {
+                // @ts-expect-error: string|number always number here.
                 this.cursor = c + w[0].length;
                 if (w.length < 4) return w[2];
+                // @ts-expect-error: string|number always number here.
                 this.af = w[3];
+                // @ts-expect-error: call_among_func never null here.
                 if (call_among_func.call(this))
                 {
+                    // @ts-expect-error: string|number always number here.
                     this.cursor = c + w[0].length;
                     return w[2];
                 }
             }
+            // @ts-expect-error: string|number always number here.
             i = w[1];
         } while (i >= 0);
         return 0;
@@ -339,6 +347,7 @@ class BaseStemmer {
             let common = common_i < common_j ? common_i : common_j;
             const w = v[k];
             let i2;
+            // @ts-expect-error: string|number always number here.
             for (i2 = w[0].length - 1 - common; i2 >= 0; i2--)
             {
                 if (c - common === lb)
@@ -346,6 +355,7 @@ class BaseStemmer {
                     diff = -1;
                     break;
                 }
+                // @ts-expect-error: string|number always number here.
                 diff = this.current.charCodeAt(c - 1 - common) - w[0].charCodeAt(i2);
                 if (diff !== 0) break;
                 common++;
@@ -370,17 +380,23 @@ class BaseStemmer {
         }
         do {
             const w = v[i];
+            // @ts-expect-error: string|number always number here.
             if (common_i >= w[0].length)
             {
+                // @ts-expect-error: string|number always number here.
                 this.cursor = c - w[0].length;
                 if (w.length < 4) return w[2];
+                // @ts-expect-error: string|number always number here.
                 this.af = w[3];
+                // @ts-expect-error: call_among_func never null here.
                 if (call_among_func.call(this))
                 {
+                    // @ts-expect-error: string|number always number here.
                     this.cursor = c - w[0].length;
                     return w[2];
                 }
             }
+            // @ts-expect-error: string|number always number here.
             i = w[1];
         } while (i >= 0);
         return 0;
