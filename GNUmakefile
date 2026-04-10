@@ -907,7 +907,7 @@ check_go_%: $(STEMMING_DATA_ABS)/%
 	fi
 	@if test -f '$</voc.txt.gz' ; then rm tmp.txt ; fi
 
-CLEANDIRS += go_src_dir
+CLEANDIRS += $(go_src_dir)
 CLEANFILES += $(go_src_main_dir)/stemwords/algorithms.go
 
 ###############################################################################
