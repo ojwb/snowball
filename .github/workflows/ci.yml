@@ -216,6 +216,9 @@ jobs:
         sdk: ${{ matrix.dart_sdk }}
     - name: Install Zig
       if: matrix.ZIG
+      # setup-zig works with Node 24 but doesn't require it so GHA moans.
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
       uses: mlugg/setup-zig@v2
       with:
         version: 0.16.0
