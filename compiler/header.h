@@ -6,7 +6,7 @@
 #define SNOWBALL_VERSION "3.1.1"
 
 typedef unsigned char byte;
-typedef unsigned short symbol;
+typedef unsigned symbol;
 
 #define MALLOC check_malloc
 #define FREE check_free
@@ -70,8 +70,8 @@ extern void str_pop(const struct str *str);
 extern void str_pop_n(const struct str *str, int n);
 extern void output_str(FILE * outfile, struct str * str);
 
-extern int get_utf8(const symbol * p, int * slot);
-extern int put_utf8(int ch, symbol * p);
+extern int get_utf8(const symbol * p, symbol * slot);
+extern int put_utf8(symbol ch, symbol * p);
 
 typedef enum { ENC_SINGLEBYTE = 0, ENC_UTF8, ENC_WIDECHARS } enc;
 

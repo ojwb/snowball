@@ -387,19 +387,19 @@ extern void str_pop_n(const struct str *str, int n) {
     }
 }
 
-extern int get_utf8(const symbol * p, int * slot) {
-    int b0 = *p++;
+extern int get_utf8(const symbol * p, symbol * slot) {
+    symbol b0 = *p++;
     if (b0 < 0xC0) {   /* 1100 0000 */
         * slot = b0; return 1;
     }
-    int b1 = *p++;
+    symbol b1 = *p++;
     if (b0 < 0xE0) {   /* 1110 0000 */
         * slot = (b0 & 0x1F) << 6 | (b1 & 0x3F); return 2;
     }
     * slot = (b0 & 0xF) << 12 | (b1 & 0x3F) << 6 | (*p & 0x3F); return 3;
 }
 
-extern int put_utf8(int ch, symbol * p) {
+extern int put_utf8(symbol ch, symbol * p) {
     if (ch < 0x80) {
         p[0] = ch; return 1;
     }

@@ -50,7 +50,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
     int i = 0;
     write_char(g, '"');
     while (i < SIZE(p)) {
-        int ch;
+        symbol ch;
         i += get_utf8(p + i, &ch);
         if (32 <= ch && ch < 127) {
             if (ch == '\"' || ch == '\\' || ch == '$') write_char(g, '\\');

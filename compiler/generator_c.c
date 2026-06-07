@@ -1290,7 +1290,7 @@ static void generate_substring(struct generator * g, struct node * p) {
     write_comment(g, p);
 
     struct among * x = p->among;
-    int block = -1;
+    symbol block = (symbol)-1;
     unsigned int bitmap = 0;
     struct amongvec * among_cases = x->b;
     int empty_case = -1;
@@ -1323,10 +1323,10 @@ static void generate_substring(struct generator * g, struct node * p) {
         if (n_cases == 0) {
             block = ch >> 5;
         } else if (ch >> 5 != block) {
-            block = -1;
+            block = (symbol)-1;
             if (n_cases > 2) break;
         }
-        if (block == -1) {
+        if (block == (symbol)-1) {
             if (n_cases > 0 && ch == cases[0]) continue;
             if (n_cases < 2) {
                 cases[n_cases++] = ch;
@@ -1344,7 +1344,7 @@ static void generate_substring(struct generator * g, struct node * p) {
         }
     }
 
-    bool pre_check = (block != -1 || n_cases <= 2);
+    bool pre_check = (block != (symbol)-1 || n_cases <= 2);
     if (g->options->coverage) {
         // Don't shortcut if generating coverage.
         pre_check = false;

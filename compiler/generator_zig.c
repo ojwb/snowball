@@ -42,7 +42,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
     int i = 0;
     write_char(g, '"');
     while (i < SIZE(p)) {
-        int ch;
+        symbol ch;
         i += get_utf8(p + i, &ch);
         // Write out ASCII and lower Unicode printables as literal characters.
         // Use escapes for anything over 0x590 as a crude way to avoid LTR

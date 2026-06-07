@@ -36,7 +36,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
     int i = 0;
     write_char(g, '"');
     while (i < SIZE(p)) {
-        int ch;
+        symbol ch;
         i += get_utf8(p + i, &ch);
         // Write out ASCII and lower Unicode printables as literal characters.
         // Use escapes for anything over 0x590 as a crude way to avoid LTR
@@ -1141,7 +1141,7 @@ static void generate_substring(struct generator * g, struct node * p) {
     write_comment(g, p);
 
     struct among * x = p->among;
-    int block = -1;
+    symbol block = (symbol)-1;
     unsigned int bitmap = 0;
     struct amongvec * among_cases = x->b;
     int empty_case = -1;
@@ -1175,10 +1175,10 @@ static void generate_substring(struct generator * g, struct node * p) {
         if (n_cases == 0) {
             block = ch >> 5;
         } else if (ch >> 5 != block) {
-            block = -1;
+            block = (symbol)-1;
             if (n_cases > 2) break;
         }
-        if (block == -1) {
+        if (block == (symbol)-1) {
             if (n_cases > 0 && ch == cases[0]) continue;
             if (n_cases < 2) {
                 cases[n_cases++] = ch;
@@ -1196,7 +1196,7 @@ static void generate_substring(struct generator * g, struct node * p) {
         }
     }
 
-    int pre_check = (block != -1 || n_cases <= 2);
+    int pre_check = (block != (symbol)-1 || n_cases <= 2);
     if (pre_check) {
         char buf[64];
         g->I[2] = block;

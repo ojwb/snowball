@@ -55,7 +55,7 @@ static void write_comment_literalstring(struct generator * g, const symbol *s,
         if (end_len <= SIZE(s)) {
             for (int i = 0; i <= SIZE(s) - end_len; ++i) {
                 for (int j = 0; j < end_len; ++j) {
-                    if (s[i + j] != end[j]) goto next_outer;
+                    if (s[i + j] != (unsigned char)end[j]) goto next_outer;
                 }
                 write_string(g, "<literal string>");
                 return;
@@ -72,7 +72,7 @@ next_outer: ;
     int i = 0;
     write_char(g, '\'');
     while (i < SIZE(s)) {
-        int ch;
+        symbol ch;
         if (g->options->encoding == ENC_UTF8) {
             i += get_utf8(s + i, &ch);
         } else {
