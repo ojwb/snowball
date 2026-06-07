@@ -169,8 +169,8 @@ static int read_literal_string(struct tokeniser * t, int c) {
                             codepoint = (codepoint << 4) | hex;
                         }
                         if (t->encoding == ENC_UTF8) {
-                            if (codepoint < 0 || codepoint > 0x01ffff) {
-                                error1(t, "character values exceed 0x01ffff");
+                            if (codepoint < 0 || codepoint > 0x10ffff) {
+                                error1(t, "character values exceed U+10FFFF");
                             }
                             /* Ensure there's enough space for a max length
                              * UTF-8 sequence. */
