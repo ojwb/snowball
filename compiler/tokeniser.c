@@ -175,8 +175,8 @@ static int read_literal_string(struct tokeniser * t, int c) {
                             /* Ensure there's enough space for a max length
                              * UTF-8 sequence. */
                             int b_size = SIZE(t->b);
-                            if (CAPACITY(t->b) < b_size + 3) {
-                                t->b = increase_capacity_b(t->b, 3);
+                            if (CAPACITY(t->b) < b_size + 4) {
+                                t->b = increase_capacity_b(t->b, 4);
                             }
                             SET_SIZE(t->b, b_size + put_utf8(codepoint, t->b + b_size));
                         } else {

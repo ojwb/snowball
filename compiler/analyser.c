@@ -411,8 +411,8 @@ static struct node * read_AE(struct analyser * a, struct name * assigned_to, int
             if (token == c_lenof && t->encoding == ENC_UTF8) {
                 // UTF-8.
                 symbol * b = p->literalstring;
-                symbol dummy;
-                for (int i = 0; i < SIZE(b); i += get_utf8(b + i, &dummy)) {
+                int units;
+                for (int i = 0; i < SIZE(b); (void)get_utf8(b + i, &units), i += units) {
                     ++result;
                 }
             } else {
@@ -1757,10 +1757,9 @@ handle_rel_op: ;
 
 static int next_symbol(symbol * p, symbol * W, int utf8) {
     if (utf8) {
-        symbol ch;
-        int j = get_utf8(p, &ch);
-        *W = ch;
-        return j;
+        int units;
+        *W = get_utf8(p, &units);
+        return units;
     } else {
         *W = *p;
         return 1;

@@ -74,7 +74,9 @@ next_outer: ;
     while (i < SIZE(s)) {
         symbol ch;
         if (g->options->encoding == ENC_UTF8) {
-            i += get_utf8(s + i, &ch);
+            int units;
+            ch = get_utf8(s + i, &units);
+            i += units;
         } else {
             ch = s[i++];
         }

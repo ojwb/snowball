@@ -93,8 +93,8 @@ static void write_literal_string(struct generator * g, symbol * p) {
     bool in_quotes = false;
     int i = 0;
     while (i < SIZE(p)) {
-        symbol ch;
-        int w = get_utf8(p + i, &ch);
+        int w;
+        symbol ch = get_utf8(p + i, &w);
         // Write out ASCII and lower Unicode printables as literal characters.
         // Use escapes for anything over 0x590 as a crude way to avoid LTR
         // characters affecting the rendering of source character order in

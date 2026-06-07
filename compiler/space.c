@@ -387,27 +387,45 @@ extern void str_pop_n(const struct str *str, int n) {
     }
 }
 
-extern int get_utf8(const symbol * p, symbol * slot) {
+extern symbol get_utf8(const symbol * p, int * units) {
     symbol b0 = *p++;
     if (b0 < 0xC0) {   /* 1100 0000 */
-        * slot = b0; return 1;
+        *units = 1;
+        return b0;
     }
-    symbol b1 = *p++;
+    symbol b1 = *p++ & 0x3F;
     if (b0 < 0xE0) {   /* 1110 0000 */
-        * slot = (b0 & 0x1F) << 6 | (b1 & 0x3F); return 2;
+        *units = 2;
+        return (b0 & 0x1F) << 6 | b1;
     }
-    * slot = (b0 & 0xF) << 12 | (b1 & 0x3F) << 6 | (*p & 0x3F); return 3;
+    symbol b2 = *p++ & 0x3F;
+    if (b0 < 0xF0) {   /* 1111 0000 */
+        *units = 3;
+        return (b0 & 0xF) << 12 | b1 << 6 | b2;
+    }
+    *units = 4;
+    return (b0 & 0x7) << 18 | b1 << 12 | b2 << 6 | (*p & 0x3F);
 }
 
 extern int put_utf8(symbol ch, symbol * p) {
     if (ch < 0x80) {
-        p[0] = ch; return 1;
+        p[0] = ch;
+        return 1;
     }
     if (ch < 0x800) {
         p[0] = (ch >> 6) | 0xC0;
-        p[1] = (ch & 0x3F) | 0x80; return 2;
+        p[1] = (ch & 0x3F) | 0x80;
+        return 2;
     }
-    p[0] = (ch >> 12) | 0xE0;
-    p[1] = ((ch >> 6) & 0x3F) | 0x80;
-    p[2] = (ch & 0x3F) | 0x80; return 3;
+    if (ch < 0x10000) {
+        p[0] = (ch >> 12) | 0xE0;
+        p[1] = ((ch >> 6) & 0x3F) | 0x80;
+        p[2] = (ch & 0x3F) | 0x80;
+        return 3;
+    }
+    p[0] = (ch >> 18) | 0xF0;
+    p[1] = ((ch >> 12) & 0x3F) | 0x80;
+    p[2] = ((ch >> 6) & 0x3F) | 0x80;
+    p[3] = (ch & 0x3F) | 0x80;
+    return 4;
 }

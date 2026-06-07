@@ -70,7 +70,7 @@ extern void str_pop(const struct str *str);
 extern void str_pop_n(const struct str *str, int n);
 extern void output_str(FILE * outfile, struct str * str);
 
-extern int get_utf8(const symbol * p, symbol * slot);
+extern symbol get_utf8(const symbol * p, int * units);
 extern int put_utf8(symbol ch, symbol * p);
 
 typedef enum { ENC_SINGLEBYTE = 0, ENC_UTF8, ENC_WIDECHARS } enc;
