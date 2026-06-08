@@ -45,10 +45,10 @@ static void write_varref(struct generator * g, struct name * p) {
 static void write_literal_string(struct generator * g, symbol * p) {
     write_char(g, '"');
     for (int i = 0; i < SIZE(p); i++) {
-        int ch = p[i];
+        symbol ch = p[i];
         if (32 <= ch && ch < 127) {
             if (ch == '\"' || ch == '\\') write_char(g, '\\');
-            write_char(g, ch);
+            write_char(g, (char)ch);
         } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
@@ -179,7 +179,7 @@ static void writef(struct generator * g, const char * input, struct node * p) {
     int i = 0;
 
     while (input[i]) {
-        int ch = input[i++];
+        char ch = input[i++];
         if (ch != '~') {
             write_char(g, ch);
             continue;

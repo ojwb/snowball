@@ -51,13 +51,13 @@ static void write_varref(struct generator * g, struct name * p) {
 }
 
 /* write character literal */
-static void wlitch(struct generator * g, int ch) {
+static void wlitch(struct generator * g, symbol ch) {
     if (32 <= ch && ch < 127) {
         write_char(g, '\'');
         if (ch == '\'' || ch == '\\') {
             write_char(g, '\\');
         }
-        write_char(g, ch);
+        write_char(g, (char)ch);
         write_char(g, '\'');
     } else {
         write_string(g, "0x");
@@ -191,7 +191,7 @@ static void writef(struct generator * g, const char * input, struct node * p) {
     int i = 0;
 
     while (input[i]) {
-        int ch = input[i++];
+        char ch = input[i++];
         if (ch != '~') {
             write_char(g, ch);
             continue;
@@ -258,7 +258,7 @@ continue_outer_loop:
                 else if (ch == 'J')
                     wi3(g, g->I[j]);
                 else
-                    wlitch(g, g->I[j]);
+                    wlitch(g, (symbol)g->I[j]);
                 continue;
             }
             case 'V':
@@ -1844,7 +1844,7 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
         int grouping_number = q->name->count;
         if (grouping_number > 255) grouping_number = 255;
         w(g, ", ");
-        wlitch(g, grouping_number);
+        wlitch(g, (symbol)grouping_number);
 
         char buf[1024];
         checked_snprintf(buf, sizeof(buf), "%s:%d: grouping %.*s",
@@ -1853,7 +1853,7 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 
         for (const char * p = buf; *p; ++p) {
             w(g, ", ");
-            wlitch(g, (int)*p);
+            wlitch(g, (symbol)(unsigned char)*p);
         }
         w(g, ", '\\0'");
     }

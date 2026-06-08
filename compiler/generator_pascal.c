@@ -66,14 +66,14 @@ static void write_literal_string(struct generator * g, symbol * p) {
     }
     bool in_quotes = false;
     for (int i = 0; i < SIZE(p); i++) {
-        int ch = p[i];
+        symbol ch = p[i];
         if (32 <= ch && ch < 127) {
             if (!in_quotes) {
                 write_char(g, '\'');
                 in_quotes = true;
             }
             if (ch == '\'') write_char(g, '\'');
-            write_char(g, ch);
+            write_char(g, (char)ch);
         } else {
             if (in_quotes) {
                 write_char(g, '\'');
@@ -196,7 +196,7 @@ static void writef(struct generator * g, const char * input, struct node * p) {
     int i = 0;
 
     while (input[i]) {
-        int ch = input[i++];
+        char ch = input[i++];
         if (ch != '~') {
             write_char(g, ch);
             continue;

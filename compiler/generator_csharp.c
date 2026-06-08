@@ -39,7 +39,7 @@ static void write_varref(struct generator * g, struct name * p) {
 static void write_literal_string(struct generator * g, symbol * p) {
     write_char(g, '"');
     for (int i = 0; i < SIZE(p); i++) {
-        int ch = p[i];
+        symbol ch = p[i];
         // Write out ASCII and lower Unicode printables as literal characters.
         // Use escapes for anything over 0x590 as a crude way to avoid LTR
         // characters affecting the rendering of source character order in
@@ -163,7 +163,7 @@ static void writef(struct generator * g, const char * input, struct node * p) {
     int i = 0;
 
     while (input[i]) {
-        int ch = input[i++];
+        char ch = input[i++];
         if (ch != '~') {
             write_char(g, ch);
             continue;

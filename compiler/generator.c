@@ -82,7 +82,7 @@ next_outer: ;
         }
         if (ch == '\'' || ch == '{') {
             write_char(g, '{');
-            write_char(g, ch);
+            write_char(g, (char)ch);
             write_char(g, '}');
         } else if (ch < 32 ||
                    (ch >= 127 && ch <= ch_max) ||
@@ -574,7 +574,7 @@ extern void write_hex(struct generator * g, unsigned i) {
     write_hexdigit(g, i); /* hex integer */
 }
 
-extern void write_char(struct generator * g, int ch) {
+extern void write_char(struct generator * g, char ch) {
     str_append_ch(g->outbuf, ch); /* character */
 }
 

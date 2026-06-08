@@ -54,7 +54,7 @@ static void write_literal_string(struct generator * g, symbol * p) {
         symbol ch = get_utf8(p + i, &w);
         if (32 <= ch && ch < 127) {
             if (ch == '\"' || ch == '\\' || ch == '$') write_char(g, '\\');
-            write_char(g, ch);
+            write_char(g, (char)ch);
         } else {
             write_string(g, "\\u{");
             write_hex(g, ch);
@@ -69,7 +69,7 @@ static void write_literal_char(struct generator * g, symbol ch) {
     write_char(g, '"');
     if (32 <= ch && ch < 127) {
         if (ch == '\"' || ch == '\\') write_char(g, '\\');
-        write_char(g, ch);
+        write_char(g, (char)ch);
     } else {
         write_string(g, "\\u{");
         write_hex(g, ch);
@@ -180,7 +180,7 @@ static void writef(struct generator * g, const char * input, struct node * p) {
     int i = 0;
 
     while (input[i]) {
-        int ch = input[i++];
+        char ch = input[i++];
         if (ch != '~') {
             write_char(g, ch);
             continue;

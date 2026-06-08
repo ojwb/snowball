@@ -472,7 +472,7 @@ extern struct str * vars_newname(struct generator * g);
 
 extern void write_margin(struct generator * g);
 
-extern void write_char(struct generator * g, int ch);
+extern void write_char(struct generator * g, char ch);
 extern void write_newline(struct generator * g);
 extern void write_string(struct generator * g, const char * s);
 extern void write_wchar_as_utf8(struct generator * g, symbol ch);
