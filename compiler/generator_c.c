@@ -1594,6 +1594,10 @@ static void generate_head(struct generator * g) {
     }
     w(g, "#include <stddef.h>~N~N");
 
+    w(g, "#ifdef _MSC_VER~N");
+    w(g, "# pragma warning(disable:4127) /* Constant if expr. */~N");
+    w(g, "#endif~N~N");
+
     if (o->target_lang == LANG_CPLUSPLUS) {
         w(g, "~Mtypedef ");
         write_string(g, o->package);

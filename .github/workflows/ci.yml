@@ -33,7 +33,7 @@ jobs:
           c_tests: check
           ccache: sccache
           CC: cl
-          CFLAGS: -nologo -std:c11 -W4
+          CFLAGS: -nologo -std:c11 -W4 -WX
 
       fail-fast: false
 
