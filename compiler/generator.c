@@ -565,6 +565,10 @@ extern void write_hex4(struct generator * g, unsigned ch) {
     for (int i = 12; i >= 0; i -= 4) write_hexdigit(g, ch >> i);
 }
 
+extern void write_hex8(struct generator * g, unsigned ch) {
+    for (int i = 28; i >= 0; i -= 4) write_hexdigit(g, ch >> i);
+}
+
 extern void write_hex(struct generator * g, unsigned i) {
     if (i >> 4) write_hex(g, i >> 4);
     write_hexdigit(g, i); /* hex integer */

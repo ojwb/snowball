@@ -192,6 +192,7 @@ static int read_literal_string(struct tokeniser * t, int c) {
                                     error1(t, "character values exceed 256");
                                 }
                             } else {
+                                // FIXME: Check wide-character languages handle > U+FFFF.
                                 if (codepoint < 0 || codepoint > 0xffff) {
                                     error1(t, "character values exceed 64K");
                                 }
@@ -405,6 +406,7 @@ static void convert_numeric_string(struct tokeniser * t, symbol * p, int base) {
                 return;
             }
         } else {
+            // FIXME handle > U+FFFF
             if (number < 0 || number > 0xffff) {
                 error1(t, "character values exceed 64K");
                 return;

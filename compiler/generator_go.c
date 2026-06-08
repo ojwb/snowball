@@ -46,9 +46,12 @@ static void write_literal_string(struct generator * g, symbol * p) {
         if ((32 <= ch && ch < 127) || (0xa0 < ch && ch < 0x590)) {
             if (ch == '"' || ch == '\\') write_char(g, '\\');
             write_wchar_as_utf8(g, ch);
-        } else {
+        } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
+        } else {
+            write_string(g, "\\U");
+            write_hex8(g, ch);
         }
         i += w;
     }

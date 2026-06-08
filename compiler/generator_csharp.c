@@ -48,9 +48,13 @@ static void write_literal_string(struct generator * g, symbol * p) {
             if (ch == '"' || ch == '\\') write_char(g, '\\');
             // Our C# generator uses ENC_WIDECHARS so we need to convert.
             write_wchar_as_utf8(g, ch);
-        } else {
+        } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
+        } else {
+            // Represented using surrogate pairs...
+            write_string(g, "\\U");
+            write_hex8(g, ch);
         }
     }
     write_char(g, '"');

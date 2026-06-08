@@ -58,16 +58,21 @@ static void write_literal_string(struct generator * g, symbol * p) {
     write_char(g, '"');
     for (int i = 0; i < SIZE(p); i++) {
         int ch = p[i];
+        // Write out ASCII and lower Unicode printables as literal characters.
+        // Use escapes for anything over 0x590 as a crude way to avoid LTR
+        // characters affecting the rendering of source character order in
+        // confusing ways.
         if ((32 <= ch && ch < 127) || (0xa0 < ch && ch < 0x590)) {
             if (ch == '"' || ch == '\\') write_char(g, '\\');
             // Our Python generator uses ENC_WIDECHARS so we need to convert.
             write_wchar_as_utf8(g, ch);
-        } else {
-            // Use escapes for anything over 0x590 as a crude way to avoid
-            // LTR characters affecting the rendering of source character
-            // order in confusing ways.
+        } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
+        } else {
+            // Always represented as one codepoint by Python >= 3.3.
+            write_string(g, "\\U");
+            write_hex8(g, ch);
         }
     }
     write_char(g, '"');

@@ -43,9 +43,14 @@ static void write_literal_string(struct generator * g, symbol * p) {
         if (32 <= ch && ch < 127) {
             if (ch == '"' || ch == '\\' || ch == '$') write_char(g, '\\');
             write_char(g, ch);
-        } else {
+        } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
+        } else {
+            // Represented using surrogate pairs...
+            write_string(g, "\\u{");
+            write_hex(g, ch);
+            write_char(g, '}');
         }
     }
     write_char(g, '"');

@@ -49,9 +49,13 @@ static void write_literal_string(struct generator * g, symbol * p) {
             write_char(g, '0' + ((ch >> 6) & 0x03));
             write_char(g, '0' + ((ch >> 3) & 0x07));
             write_char(g, '0' + (ch & 0x07));
-        } else {
+        } else if (ch < 0x10000) {
             write_string(g, "\\u");
             write_hex4(g, ch);
+        } else {
+            // Seems to be no direct way to write non-UCS2 characters.
+            // Have to emit surrogate pairs by hand?
+            abort();
         }
     }
     write_char(g, '"');
