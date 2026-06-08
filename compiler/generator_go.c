@@ -208,8 +208,8 @@ static void writef(struct generator * g, const char * input, struct node * p) {
                 if (g->options->externals_prefix) {
                     write_string(g, g->options->externals_prefix);
                 }
-                char save_initial = p->name->s[0];
-                p->name->s[0] = toupper(save_initial);
+                byte save_initial = p->name->s[0];
+                p->name->s[0] = (byte)toupper(save_initial);
                 write_s(g, p->name->s);
                 p->name->s[0] = save_initial;
                 continue;

@@ -66,8 +66,8 @@ static void write_varname(struct generator * g, struct name * p) {
     }
 
     {
-        char save_initial = p->s[0];
-        p->s[0] = toupper(save_initial);
+        byte save_initial = p->s[0];
+        p->s[0] = (byte)toupper(save_initial);
         str_append_s(g->outbuf, p->s);
         p->s[0] = save_initial;
     }

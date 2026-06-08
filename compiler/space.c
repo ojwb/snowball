@@ -303,7 +303,7 @@ extern void str_append_string(struct str * str, const char * s) {
 extern void str_append_int(struct str * str, int i) {
     // Most calls are for integers 0 to 9 (~72%).
     if (i >= 0 && i <= 9) {
-        str_append_ch(str, '0' + i);
+        str_append_ch(str, '0' + (char)i);
         return;
     }
 
@@ -322,11 +322,11 @@ extern void str_append_wchar_as_utf8(struct str * str, symbol ch) {
         return;
     }
     if (ch < 0x800) {
-        str_append_ch(str, (ch >> 6) | 0xC0);
+        str_append_ch(str, (char)(ch >> 6) | 0xC0);
         str_append_ch(str, (ch & 0x3F) | 0x80);
         return;
     }
-    str_append_ch(str, (ch >> 12) | 0xE0);
+    str_append_ch(str, (char)(ch >> 12) | 0xE0);
     str_append_ch(str, ((ch >> 6) & 0x3F) | 0x80);
     str_append_ch(str, (ch & 0x3F) | 0x80);
 }

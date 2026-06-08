@@ -146,9 +146,8 @@ static int read_literal_string(struct tokeniser * t, int c) {
                         if (t->uplusmode == UPLUS_DEFINED) {
                             /* See if found with xxxx upper-cased. */
                             byte * uc = create_s(n);
-                            int i;
-                            for (i = 0; i != n; ++i) {
-                                uc[i] = toupper(p[c0 + i]);
+                            for (int i = 0; i != n; ++i) {
+                                uc[i] = (byte)toupper(p[c0 + i]);
                             }
                             q = find_in_m(t, n, uc);
                             lose_s(uc);

@@ -434,7 +434,7 @@ static struct options * read_options(int * argc_ptr, char * argv[]) {
             case LANG_CSHARP:
             case LANG_PASCAL:
                 /* Upper case initial letter. */
-                o->name[0] = toupper(o->name[0]);
+                o->name[0] = (byte)toupper(o->name[0]);
                 break;
             case LANG_CPLUSPLUS:
             case LANG_PHP:
@@ -452,7 +452,7 @@ static struct options * read_options(int * argc_ptr, char * argv[]) {
                         uc_next = true;
                     } else {
                         if (uc_next) {
-                            o->name[new_len] = toupper(ch);
+                            o->name[new_len] = (byte)toupper(ch);
                             uc_next = false;
                         } else {
                             o->name[new_len] = ch;

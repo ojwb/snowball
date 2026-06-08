@@ -50,7 +50,7 @@ stem_file(struct sb_stemmer * stemmer, FILE * f_in, FILE * f_out)
                 /* force lower case: */
                 ch = tolower(ch);
 
-                b[i] = ch;
+                b[i] = (sb_symbol)ch;
                 i++;
                 ch = getc(f_in);
             }

@@ -41,7 +41,7 @@ static struct node * new_node_at_line(struct analyser * a, int type, int line) {
     *p = (struct node){0};
     p->mode = a->mode;
     p->line_number = line;
-    p->type = type;
+    p->type = (byte)type;
     p->next = a->nodes;
     a->nodes = p;
     return p;
@@ -188,7 +188,7 @@ static struct name * find_name(struct analyser * a) {
     return p;
 }
 
-static void check_routine_mode(struct analyser * a, struct name * p, int mode) {
+static void check_routine_mode(struct analyser * a, struct name * p, byte mode) {
     if (p->mode == m_unknown) {
         p->mode = mode;
     } else if (p->mode != mode) {
@@ -247,7 +247,7 @@ handle_as_name:
                     *p = (struct name){0};
                     p->mode = m_unknown; /* used for routines, externals */
                     p->s = copy_s(t->s);
-                    p->type = type;
+                    p->type = (byte)type;
                     /* Delay assigning counts until after we've eliminated
                      * variables whose values are never used and checked for
                      * variables which can be localised.
@@ -745,7 +745,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
     struct amongvec * w1 = v;
     int result = 1;
 
-    int direction = substring != NULL ? substring->mode : p->mode;
+    byte direction = substring != NULL ? substring->mode : p->mode;
     int backward = direction == m_backward;
 
     *x = (struct among){0};
@@ -1144,7 +1144,7 @@ static struct node * read_C(struct analyser * a) {
             return p;
         }
         case c_backwards: {
-            int mode = a->mode;
+            byte mode = a->mode;
             if (a->mode == m_backward) {
                 report_error_location(a);
                 fprintf(stderr, "'backwards' used when already in this mode\n");
@@ -1156,8 +1156,8 @@ static struct node * read_C(struct analyser * a) {
             return p;
         }
         case c_reverse: {
-            int mode = a->mode;
-            int modifyable = a->modifyable;
+            byte mode = a->mode;
+            bool modifyable = a->modifyable;
             a->modifyable = false;
             a->mode = (mode == m_forward) ? m_backward : m_forward;
             struct node * p = new_node(a, token);
@@ -1177,7 +1177,7 @@ static struct node * read_C(struct analyser * a) {
                     return subcommand;
                 case c_next: {
                     // `not next` -> compare `cursor` and `limit`.
-                    int mode = a->mode;
+                    byte mode = a->mode;
                     struct node * n = new_node(a, mode == m_forward ? c_ge : c_le);
                     n->left = subcommand;
                     n->left->type = c_cursor;
@@ -1210,7 +1210,7 @@ static struct node * read_C(struct analyser * a) {
             p->left = read_C(a);
             if (p->left->type == c_next) {
                 // `test next` -> compare `cursor` and `limit`.
-                int mode = a->mode;
+                byte mode = a->mode;
                 p->type = (mode == m_forward ? c_lt : c_gt);
                 p->left->type = c_cursor;
                 p->AE = new_node_at_line(a, c_limit, p->left->line_number);
@@ -1390,7 +1390,7 @@ static struct node * read_C(struct analyser * a) {
         case c_false:
             return new_node(a, token);
         case c_atlimit: {
-            int mode = a->mode;
+            byte mode = a->mode;
             struct node * n = new_node(a, mode == m_forward ? c_ge : c_le);
             n->left = new_node_at_line(a, c_cursor, n->line_number);
             n->AE = new_node_at_line(a, c_limit, n->line_number);
@@ -1576,8 +1576,8 @@ handle_rel_op: ;
                 q->initialised = true;
                 q->value_used = true;
                 struct node * p = new_node_at_line(a, c_dollar, dollar_line);
-                int mode = a->mode;
-                int modifyable = a->modifyable;
+                byte mode = a->mode;
+                bool modifyable = a->modifyable;
                 a->mode = m_forward;
                 a->modifyable = true;
                 p->left = read_C(a);
@@ -1978,7 +1978,7 @@ static void read_define(struct analyser * a) {
 }
 
 static void read_backwardmode(struct analyser * a) {
-    int mode = a->mode;
+    byte mode = a->mode;
     a->mode = m_backward;
     if (get_token(a, c_bra)) {
         read_program_(a, c_ket);
@@ -2575,7 +2575,7 @@ static void visit_node(struct analyser * a, struct node * p, struct name * func)
             visit_node(a, p->AE, func);
         }
 
-        p->possible_signals = check_possible_signals(a, p);
+        p->possible_signals = (signed char)check_possible_signals(a, p);
 
         if ((p->type == c_and || p->type == c_or) && !p->left->right) {
             // Pruning of unreachable code can leave single-entry c_and and
