@@ -13,6 +13,7 @@ define stem as (
   test ('ok' $(cursor == 2) atlimit) or fail='atlimit failed after string match'
   not 'x' or fail='incorrectly matched single character string'
   not 'ko' or fail='incorrectly matched string'
+  $(cursor == 0) or fail='cursor not restored after string literal tests'
 
   $s=''
   s or fail='failed to match empty string var'
@@ -25,6 +26,18 @@ define stem as (
   test (s $(cursor == 2) atlimit) or fail='atlimit failed after string var match'
   $s='x' not s or fail='incorrectly matched single character string var'
   $s='ko' not s or fail='incorrectly matched string var'
+
+  do (
+    ='test'
+  )
+  $(cursor == 0) or fail='cursor not restored by do'
+
+  backwards (
+    do (
+      ='test'
+    )
+    $(cursor == size) or fail='cursor not restored by do'
+  )
 
   ='abcde'
   test ( $(len == 5) $(cursor == 0) 'abcde' atlimit ) or fail='string assignment wrong'
@@ -39,11 +52,12 @@ define stem as (
   test ( $(len == 17) $(cursor == 0) 'australopithecine' atlimit ) or fail='string assignment does not replace c:l (longer)'
 
   // Test string literals are properly escaped for various target languages.
-  $s='$xxx \x42 \u0042 \u{0042} {$xxx}' $(lenof s == 32) or fail='bad target language string literal escaping'
+  $s='$xxx \x42 \u0042 \u{0042} \u000a {$xxx}' $(lenof s == 39) or fail='bad target language string literal escaping'
 
   // Test ASCII control characters in string literals
   stringescapes {}
-  $s='{U+000A}{U+001F}{U+007F}{U+0000}x' $(lenof s == 5) or fail='ASCII control characters not handled'
+  $s='{U+A}{U+1F}{U+7F}{U+0}x' $(lenof s == 5) or fail='ASCII control characters not handled'
+  $s='a{U+80}{U+A0}b{U+00FF}' $(lenof s == 5) or fail='Unicode characters not handled'
 
   // Test that using a C close-comment sequence doesn't trip anything up.
   not '*/' or fail='C close comment sequence mishandled'

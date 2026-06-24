@@ -120,17 +120,12 @@ async function create (name) {
         process.exit(1);
         return;
     }
-    const stemmerName = `${titleCase(lc_name)}Stemmer`;
     const filename = `../js_out/${lc_name}-stemmer.js`;
     try {
         // Load stemmer class from the module scope
         const stemmerModule = await import(filename);
-        return new stemmerModule[stemmerName]();
+        return new stemmerModule.default();
     } catch (error) {
         console.error(error);
     }
-}
-
-function titleCase (s) {
-    return s.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
 }

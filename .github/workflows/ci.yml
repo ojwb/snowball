@@ -11,7 +11,7 @@ on:
       - '*.rst'
       - NEWS
   pull_request:
-    branches: master
+    branches: main
     paths-ignore:
       - '*.rst'
       - NEWS
@@ -34,12 +34,20 @@ jobs:
           CFLAGS_DIST_BUILD: '-O2 -Wall -W -std=c90 -pedantic -Wmissing-prototypes -Wmissing-declarations -Wshadow -Werror'
           CC: clang
         - name: "C"
-          c_tests: y
+          c_tests: check
           WERROR: '-std=c99 -pedantic -Werror'
-        - name: "C (clang)"
-          c_tests: y
-          WERROR: '-std=c99 -pedantic -Werror'
+        - name: "C (clang+sanitisers)"
+          # Generate code for all target languages so we exercise the generator
+          # code for each target language with sanitisers on.
+          c_tests: "generate check"
+          # Overflow of unsigned types is defined behaviour, but we don't
+          # expect it to happen in the Snowball compiler or C runtime code
+          # so enable `unsigned-integer-overflow` too.
+          WERROR: '-std=c99 -pedantic -Werror -fsanitize=address,undefined,float-divide-by-zero,local-bounds,nullability,unsigned-integer-overflow -fsanitize-address-use-after-scope -fsanitize-recover=all -fno-omit-frame-pointer'
           CC: clang
+        - name: "C++"
+          CXX: g++
+          WERROR: '-pedantic -Werror'
         - name: java
           JAVA: java
           JAVAC: javac
@@ -65,18 +73,25 @@ jobs:
         - name: rust
           RUST: rust
           apt_packages: 'rustc'
+        - name: zig
+          ZIG: zig
         - name: csharp
           MCS: mcs
           apt_packages: 'mono-devel'
         - name: Pascal
           FPC: fpc
           apt_packages: 'fpc'
-        - name: PHP 8.4
-          PHP: php
-          apt_packages: 'php php-mbstring'
-        - name: PHP 8.3
+        - name: PHP 8.5
           PHP: php
           apt_extra_repo: ppa:ondrej/php
+          apt_packages: 'php8.5-cli php8.5-mbstring'
+        - name: PHP 8.4
+          PHP: php
+          apt_extra_repo: ppa:ondrej/php
+          apt_packages: 'php8.4-cli php8.4-mbstring'
+        - name: PHP 8.3
+          PHP: php
+          os: 'ubuntu-24.04'
           apt_packages: 'php8.3-cli php8.3-mbstring'
         - name: Python 3.8
           PYTHON_VERSION: 3.8
@@ -105,7 +120,7 @@ jobs:
           apt_packages: 'gnat gprbuild'
         - name: Windows (C)
           os: windows-latest
-          c_tests: y
+          c_tests: check
           ccache: sccache
         - name: Windows (Go)
           os: windows-latest
@@ -113,6 +128,12 @@ jobs:
           MAKE: mingw32-make
           mingw64_packages: 'mingw-w64-ucrt-x86_64-go'
           ccache: sccache
+        - name: Windows MSVC (C)
+          os: windows-latest
+          c_tests: check
+          ccache: sccache
+          CC: cl
+          CFLAGS: -nologo -std:c11 -W3 -WX
 
       fail-fast: false
 
@@ -122,10 +143,11 @@ jobs:
       CC: ${{ matrix.CC || 'gcc' }}
       MAKE: ${{ matrix.MAKE || 'make' }} --output-sync --jobs=4
       STEMMING_DATA: 'snowball-data'
+      WERROR: ${{ matrix.WERROR }}
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         show-progress: false
 
@@ -136,10 +158,10 @@ jobs:
         # repo sibling of this snowball repo, so that PRs requiring changes to
         # both can be CI tested easily.
         #
-        # For a PR, GHA will have merged the PR branch into upstream master so
+        # For a PR, GHA will have merged the PR branch into upstream main so
         # we need to similarly merge the snowball-data branch into upstream
-        # master of the snowball-data repo as there may be changes there
-        # required by snowball master.
+        # main of the snowball-data repo as there may be changes there
+        # required by snowball main.
         #
         # If there's no such branch (or repo) we just use the standard
         # snowball-data repo's default branch.  If there is such a branch but
@@ -172,12 +194,17 @@ jobs:
             git clone "$UPSTREAM_REPO_URL"
           fi
         fi
+    - name: Set up Visual Studio shell
+      if: ${{ endsWith(matrix.CC, 'cl') }}
+      uses: egor-tensin/vs-shell@v2
+      with:
+        arch: x64
     - name: Hook up runtime testing
       if: ${{ inputs.runtime-tests }}
       run: |
         make setup_runtime_tests
     - name: Install CCache
-      uses: hendrikmuhs/ccache-action@v1
+      uses: hendrikmuhs/ccache-action@v1.2.21
       with:
         key: ${{ matrix.name }}
         variant: ${{ matrix.ccache || 'ccache' }}
@@ -198,9 +225,14 @@ jobs:
         deno-version: vx.x.x
     - name: Install Dart SDK
       if: matrix.dart_sdk
-      uses: dart-lang/setup-dart@v1
+      uses: dart-lang/setup-dart@v1.7.2
       with:
         sdk: ${{ matrix.dart_sdk }}
+    - name: Install Zig
+      if: matrix.ZIG
+      uses: mlugg/setup-zig@v2
+      with:
+        version: 0.16.0
     - name: Install mingw64 packages
       if: matrix.mingw64_packages
       uses: msys2/setup-msys2@v2
@@ -208,7 +240,7 @@ jobs:
         msystem: ucrt64
         install: base-devel ${{ matrix.mingw64_packages }}
     - name: Build
-      run: $MAKE CC="${{ matrix.ccache || 'ccache' }} $CC"
+      run: $MAKE CC="${{ matrix.ccache || 'ccache' }} $CC" ${{ format('{0}{1}{2}', matrix.CFLAGS && 'CFLAGS="', matrix.CFLAGS, matrix.CFLAGS && '"') }}
     - name: Test C dist
       if: matrix.CFLAGS_DIST_BUILD
       run: |
@@ -219,10 +251,21 @@ jobs:
         tar xf ../dist/libstemmer_c-*.tar.gz
         cd libstemmer_c-*
         $MAKE CFLAGS="${{ matrix.CFLAGS_DIST_BUILD }}"
+        cd ../..
+        rm -rf tmp
     - name: Test C
       if: matrix.c_tests
-      run: $MAKE check CC="$CC"
-    - uses: actions/setup-python@v5
+      run: |
+        # Kludge so "generate" target doesn't need ada installed.
+        case '${{ matrix.c_tests }}' in
+          *generate*) mkdir ada/bin && ln -s /bin/true ada/bin/generate ;;
+        esac
+        $MAKE ${{ matrix.c_tests }} CC="$CC" ${{ format('{0}{1}{2}', matrix.CFLAGS && 'CFLAGS="', matrix.CFLAGS, matrix.CFLAGS && '"') }}
+    - name: Test C++
+      if: matrix.CXX
+      run: |
+        $MAKE check_cxx CXX='${{ matrix.CXX }}'
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.PYTHON_VERSION }}
       if: matrix.PYTHON_VERSION
@@ -245,8 +288,7 @@ jobs:
       if: ${{ startsWith(matrix.JSRUN, 'deno') }}
       run: |
         deno lint javascript/*.js js_out/*.js
-        # Currently there are some problems in find_among()/find_among_b().
-        deno check javascript/*.js js_out/*.js || true
+        deno check javascript/*.js js_out/*.js
     - name: Test Rust
       if: matrix.RUST
       run: $MAKE check_rust RUST="${{ matrix.RUST }}"
@@ -255,12 +297,58 @@ jobs:
       run: |
         go mod init github.com/snowballstem/snowball
         $MAKE check_go GO="${{ matrix.GO }}"
+        rm -f go.mod
     - name: Test Pascal
       if: matrix.FPC
       run: $MAKE check_pascal FPC="${{ matrix.FPC }}"
     - name: Test PHP
       if: matrix.PHP
-      run: $MAKE check_php PHP="${{ matrix.PHP }}"
+      run: |
+        ${{ matrix.PHP }} --version
+        $MAKE check_php PHP="${{ matrix.PHP }}"
+    - name: Test Zig
+      if: matrix.ZIG
+      run: |
+        $MAKE check_zig zig="${{ matrix.ZIG }}"
+        rm -rf "$ZIG_LOCAL_CACHE_DIR"
     - name: Test Ada
       if: matrix.gprbuild
       run: $MAKE check_ada gprbuild="${{ matrix.gprbuild }}"
+    - name: make clean
+      run: |
+        rm -rf '${{ env.STEMMING_DATA }}'
+        # `.ccache`/`.sccache` is specific to CI.  We can't just delete it here
+        # or else ccache-action won't save the cache.
+        git status --porcelain=v1|grep -v '^?? \.s\?ccache/$'|grep '^' && { echo 'The generated files listed above are not in .gitignore' ; exit 1; }; true
+        $MAKE clean ${{ case(inputs.runtime-tests == true, 'clean_runtime_tests', '') }}
+        git status --porcelain=v1 --ignored|grep -v '^?? \.s\?ccache/$'|grep '^' && { echo 'The generated files listed above were not removed by `make clean`' ; exit 1; }; true
+
+  pypi-publish:
+    if: >
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      inputs.runtime-tests != true
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/snowballstemmer
+    permissions:
+      id-token: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        show-progress: false
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+    - name: Install build module
+      run: pip install build
+    - name: Generate dist
+      run: make --output-sync --jobs=4 dist_libstemmer_python
+    - name: Publish to PyPI
+      if: success()
+      uses: pypa/gh-action-pypi-publish@release/v1

@@ -15,10 +15,8 @@ for t ; do
   if $SNOWBALL -syntax "$t" 2> tmp.stderr > tmp.syntax ; then
     f="snowball compiler did not fail"
   else
-    if [ -f "$b.stderr" ] ; then
-      if ! diff "$b.stderr" tmp.stderr ; then
-	f="stderr output not as expected"
-      fi
+    if ! diff "$b.stderr" tmp.stderr ; then
+      f="stderr output not as expected"
     fi
   fi
   if [ -z "$f" ] ; then
@@ -45,6 +43,8 @@ for t ; do
     if [ -z "$f" ] && [ -f "$b.syntax" ] ; then
       if ! diff "$b.syntax" tmp.syntax ; then
 	f="syntax tree not as expected"
+      else
+	rm tmp.syntax
       fi
     fi
   else
@@ -52,6 +52,7 @@ for t ; do
   fi
   if [ -z "$f" ] ; then
     echo "ok - $b"
+    rm -f tmp.stderr tmp.syntax
   else
     echo "not ok - $b: $f"
     r=1

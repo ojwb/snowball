@@ -3,14 +3,39 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "header.h"
+#include "snowball_runtime.h"
+
+#ifdef SNOWBALL_RUNTIME_THROW_EXCEPTIONS
+# include <new>
+# include <stdexcept>
+# define SNOWBALL_RETURN_OK return
+# define SNOWBALL_RETURN_OR_THROW(R, E) throw E
+# define SNOWBALL_PROPAGATE_ERR(F) F
+#else
+# define SNOWBALL_RETURN_OK return 0
+# define SNOWBALL_RETURN_OR_THROW(R, E) return R
+# define SNOWBALL_PROPAGATE_ERR(F) do { \
+        int snowball_err = F; \
+        if (snowball_err < 0) return snowball_err; \
+    } while (0)
+#endif
+
+#define HEAD (2 * sizeof(int))
+
+/* Note that sizeof(symbol) should divide HEAD without remainder, otherwise
+ * there is an alignment problem.
+ *
+ * We support C90 here so use a typedef trick instead of static_assert.
+ */
+typedef int sizeof_symbol_divides_head[(HEAD % sizeof(symbol) == 0) ? 1 : -1];
 
 #define CREATE_SIZE 1
 
 extern symbol * create_s(void) {
     symbol * p;
     void * mem = malloc(HEAD + (CREATE_SIZE + 1) * sizeof(symbol));
-    if (mem == NULL) return NULL;
+    if (mem == NULL)
+        SNOWBALL_RETURN_OR_THROW(NULL, std::bad_alloc());
     p = (symbol *) (HEAD + (char *) mem);
     CAPACITY(p) = CREATE_SIZE;
     SET_SIZE(p, 0);
@@ -24,14 +49,15 @@ extern void lose_s(symbol * p) {
 
 /*
    new_p = skip_utf8(p, c, l, n); skips n characters forwards from p + c.
-   new_p is the new position, or -1 on failure.
+   new_p is the new position, or -1 on failure (if c would be > l).
+
+   Caller ensures n >= 0.
 
    -- used to implement hop and next in the utf8 case.
 */
 
 extern int skip_utf8(const symbol * p, int c, int limit, int n) {
     int b;
-    if (n < 0) return -1;
     for (; n > 0; n--) {
         if (c >= limit) return -1;
         b = p[c++];
@@ -49,14 +75,15 @@ extern int skip_utf8(const symbol * p, int c, int limit, int n) {
 
 /*
    new_p = skip_b_utf8(p, c, lb, n); skips n characters backwards from p + c - 1
-   new_p is the new position, or -1 on failure.
+   new_p is the new position, or -1 on failure (if c would be < lb).
+
+   Caller ensures n >= 0.
 
    -- used to implement hop and next in the utf8 case.
 */
 
 extern int skip_b_utf8(const symbol * p, int c, int limit, int n) {
     int b;
-    if (n < 0) return -1;
     for (; n > 0; n--) {
         if (c <= limit) return -1;
         b = p[--c];
@@ -119,13 +146,79 @@ static int get_b_utf8(const symbol * p, int c, int lb, int * slot) {
     return 4;
 }
 
+#ifdef SNOWBALL_COVERAGE
+/* The grouping number gets stored in a byte, clamped to 255. */
+static char grouping_seen[255];
+
+static void report_coverage(const unsigned char * s, int min, int max, int ch, const unsigned char * p, int w) {
+    int i = 0;
+    int j;
+    int outof = 0;
+    const unsigned char * loc = s + (max - min + 8) / 8;
+    int grouping_number = *loc++;
+    /* Adjust ch be an offset from min if it's past the end of the range.  If
+     * we already subtracted min then this will condition will be false.  Only
+     * needed for the "out" case but the condition can never be true for the
+     * "in" case.
+     */
+    if (ch > max) ch -= min;
+    /* Find the index of this character in the grouping. */
+    for (j = 0; j != max - min; ++j) {
+        if (s[j >> 3] & (0X1 << (j & 0X7))) {
+            ++outof;
+            if (j < ch) ++i;
+        }
+    }
+    if (grouping_number < (int)sizeof(grouping_seen) &&
+        grouping_seen[grouping_number] == 0) {
+        /* Report every entry once, then unused cases will appear (and we can
+         * decrement each count when generating the coverage report).
+         */
+        int k = 0;
+        for (j = 0; j != max - min; ++j) {
+            if (s[j >> 3] & (0X1 << (j & 0X7))) {
+                fprintf(stderr, "%s index %d of %d '", loc, k, outof + 1);
+                int codepoint = j + min;
+                if (codepoint < 0x80) {
+                    putc(codepoint, stderr);
+                } else if (codepoint < 0x800) {
+                    putc((codepoint >> 6) | 0xC0, stderr);
+                    putc((codepoint & 0x3F) | 0x80, stderr);
+                } else {
+                    putc((codepoint >> 12) | 0xE0, stderr);
+                    putc(((codepoint >> 6) & 0x3F) | 0x80, stderr);
+                    putc((codepoint & 0x3F) | 0x80, stderr);
+                }
+                fprintf(stderr, "'\n");
+                ++k;
+            }
+        }
+        grouping_seen[grouping_number] = 1;
+    }
+    fprintf(stderr, "%s index %d of %d '%.*s'\n", loc, i, outof + 1, w, p);
+}
+
+static void report_coverage_nomatch(const unsigned char * s, int min, int max) {
+    const unsigned char * loc = s + (max - min + 8) / 8;
+    ++loc;
+    fprintf(stderr, "%s no match\n", loc);
+}
+#endif
+
 extern int in_grouping_U(struct SN_env * z, const unsigned char * s, int min, int max, int repeat) {
     do {
         int ch;
         int w = get_utf8(z->p, z->c, z->l, & ch);
         if (!w) return -1;
-        if (ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0)
+        if (ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0) {
+#ifdef SNOWBALL_COVERAGE
+            report_coverage_nomatch(s, min, max);
+#endif
             return w;
+        }
+#ifdef SNOWBALL_COVERAGE
+        report_coverage(s, min, max, ch, z->p + z->c, w);
+#endif
         z->c += w;
     } while (repeat);
     return 0;
@@ -136,8 +229,15 @@ extern int in_grouping_b_U(struct SN_env * z, const unsigned char * s, int min, 
         int ch;
         int w = get_b_utf8(z->p, z->c, z->lb, & ch);
         if (!w) return -1;
-        if (ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0)
+        if (ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0) {
+#ifdef SNOWBALL_COVERAGE
+            report_coverage_nomatch(s, min, max);
+#endif
             return w;
+        }
+#ifdef SNOWBALL_COVERAGE
+        report_coverage(s, min, max, ch, z->p + z->c - w, w);
+#endif
         z->c -= w;
     } while (repeat);
     return 0;
@@ -148,8 +248,15 @@ extern int out_grouping_U(struct SN_env * z, const unsigned char * s, int min, i
         int ch;
         int w = get_utf8(z->p, z->c, z->l, & ch);
         if (!w) return -1;
-        if (!(ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0))
+        if (!(ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0)) {
+#ifdef SNOWBALL_COVERAGE
+            report_coverage(s, min, max, ch, z->p + z->c, w);
+#endif
             return w;
+        }
+#ifdef SNOWBALL_COVERAGE
+        report_coverage_nomatch(s, min, max);
+#endif
         z->c += w;
     } while (repeat);
     return 0;
@@ -160,8 +267,15 @@ extern int out_grouping_b_U(struct SN_env * z, const unsigned char * s, int min,
         int ch;
         int w = get_b_utf8(z->p, z->c, z->lb, & ch);
         if (!w) return -1;
-        if (!(ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0))
+        if (!(ch > max || (ch -= min) < 0 || (s[ch >> 3] & (0X1 << (ch & 0X7))) == 0)) {
+#ifdef SNOWBALL_COVERAGE
+            report_coverage(s, min, max, ch, z->p + z->c - w, w);
+#endif
             return w;
+        }
+#ifdef SNOWBALL_COVERAGE
+        report_coverage_nomatch(s, min, max);
+#endif
         z->c -= w;
     } while (repeat);
     return 0;
@@ -234,6 +348,13 @@ extern int eq_v(struct SN_env * z, const symbol * p) {
 extern int eq_v_b(struct SN_env * z, const symbol * p) {
     return eq_s_b(z, SIZE(p), p);
 }
+
+#ifdef SNOWBALL_COVERAGE
+/* Declare more entries than any real Snowball program will have. */
+static char among_seen[4096];
+#endif
+
+// FIXME: Need to implement among coverage for new among approach.
 
 extern int find_among(struct SN_env * z, const short * v) {
     int c = z->c;
@@ -341,13 +462,13 @@ static int increase_size(symbol ** p, int n) {
    s_size symbols at s.
    Returns 0 on success, -1 on error.
 */
-extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s, int * adjptr)
+extern SNOWBALL_ERR replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s)
 {
     int adjustment = s_size - (c_ket - c_bra);
-    int len = SIZE(z->p);
     if (adjustment != 0) {
+        int len = SIZE(z->p);
         if (adjustment + len > CAPACITY(z->p)) {
-            if (increase_size(&z->p, adjustment + len) < 0) return -1;
+            SNOWBALL_PROPAGATE_ERR(increase_size(&z->p, adjustment + len));
         }
         memmove(z->p + c_ket + adjustment,
                 z->p + c_ket,
@@ -360,12 +481,13 @@ extern int replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const 
             z->c = c_bra;
     }
     if (s_size) memmove(z->p + c_bra, s, s_size * sizeof(symbol));
-    if (adjptr != NULL)
-        *adjptr = adjustment;
-    return 0;
+    SNOWBALL_RETURN_OK;
 }
 
-static int slice_check(struct SN_env * z) {
+# define REPLACE_S(Z, B, K, SIZE, S) \
+    SNOWBALL_PROPAGATE_ERR(replace_s(Z, B, K, SIZE, S))
+
+static SNOWBALL_ERR slice_check(struct SN_env * z) {
 
     if (z->bra < 0 ||
         z->bra > z->ket ||
@@ -376,62 +498,80 @@ static int slice_check(struct SN_env * z) {
         fprintf(stderr, "faulty slice operation:\n");
         debug(z, -1, 0);
 #endif
-        return -1;
+        SNOWBALL_RETURN_OR_THROW(-1, std::logic_error("Snowball slice invalid"));
     }
-    return 0;
+    SNOWBALL_RETURN_OK;
 }
 
-extern int slice_from_s(struct SN_env * z, int s_size, const symbol * s) {
-    if (slice_check(z)) return -1;
-    if (replace_s(z, z->bra, z->ket, s_size, s, NULL) < 0) return -1;
+# define SLICE_CHECK(Z) SNOWBALL_PROPAGATE_ERR(slice_check(Z))
+
+extern SNOWBALL_ERR slice_from_s(struct SN_env * z, int s_size, const symbol * s) {
+    SLICE_CHECK(z);
+    REPLACE_S(z, z->bra, z->ket, s_size, s);
     z->ket = z->bra + s_size;
-    return 0;
+    SNOWBALL_RETURN_OK;
 }
 
-extern int slice_from_v(struct SN_env * z, const symbol * p) {
+extern SNOWBALL_ERR slice_from_v(struct SN_env * z, const symbol * p) {
     return slice_from_s(z, SIZE(p), p);
 }
 
-extern int slice_del(struct SN_env * z) {
-    return slice_from_s(z, 0, NULL);
+extern SNOWBALL_ERR slice_del(struct SN_env * z) {
+    SLICE_CHECK(z);
+    {
+        int slice_size = z->ket - z->bra;
+        if (slice_size != 0) {
+            int len = SIZE(z->p);
+            memmove(z->p + z->bra,
+                    z->p + z->ket,
+                    (len - z->ket) * sizeof(symbol));
+            SET_SIZE(z->p, len - slice_size);
+            z->l -= slice_size;
+            if (z->c >= z->ket)
+                z->c -= slice_size;
+            else if (z->c > z->bra)
+                z->c = z->bra;
+            z->ket = z->bra;
+        }
+    }
+    SNOWBALL_RETURN_OK;
 }
 
-extern int insert_s(struct SN_env * z, int bra, int ket, int s_size, const symbol * s) {
-    int adjustment;
-    if (replace_s(z, bra, ket, s_size, s, &adjustment))
-        return -1;
-    if (bra <= z->bra) z->bra += adjustment;
-    if (bra <= z->ket) z->ket += adjustment;
-    return 0;
+extern SNOWBALL_ERR insert_s(struct SN_env * z, int bra, int ket, int s_size, const symbol * s) {
+    REPLACE_S(z, bra, ket, s_size, s);
+    if (bra <= z->ket) {
+        int adjustment = s_size - (ket - bra);
+        z->ket += adjustment;
+        if (bra <= z->bra) z->bra += adjustment;
+    }
+    SNOWBALL_RETURN_OK;
 }
 
-extern int insert_v(struct SN_env * z, int bra, int ket, const symbol * p) {
+extern SNOWBALL_ERR insert_v(struct SN_env * z, int bra, int ket, const symbol * p) {
     return insert_s(z, bra, ket, SIZE(p), p);
 }
 
-extern int slice_to(struct SN_env * z, symbol ** p) {
-    if (slice_check(z)) {
-        return -1;
-    }
+extern SNOWBALL_ERR slice_to(struct SN_env * z, symbol ** p) {
+    SLICE_CHECK(z);
     {
         int len = z->ket - z->bra;
         if (CAPACITY(*p) < len) {
-            if (increase_size(p, len) < 0) return -1;
+            SNOWBALL_PROPAGATE_ERR(increase_size(p, len));
         }
         memmove(*p, z->p + z->bra, len * sizeof(symbol));
         SET_SIZE(*p, len);
     }
-    return 0;
+    SNOWBALL_RETURN_OK;
 }
 
-extern int assign_to(struct SN_env * z, symbol ** p) {
+extern SNOWBALL_ERR assign_to(struct SN_env * z, symbol ** p) {
     int len = z->l;
     if (CAPACITY(*p) < len) {
-        if (increase_size(p, len) < 0) return -1;
+        SNOWBALL_PROPAGATE_ERR(increase_size(p, len));
     }
     memmove(*p, z->p, len * sizeof(symbol));
     SET_SIZE(*p, len);
-    return 0;
+    SNOWBALL_RETURN_OK;
 }
 
 extern int len_utf8(const symbol * p) {

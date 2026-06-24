@@ -17,17 +17,27 @@ define stem as (
     'h' ($x -= 0)
     'i' ($x *= 1)
     'j' ($x /= 1)
+    'k' ($x = x)
+    'l' (atmark cursor)
+    'm' (tomark cursor)
+    'n' (among (''))
+    'o' (substring among (''))
+    'p' (among ('' (atmark cursor)))
+    'q' (substring atmark cursor among (''))
+    'r' (substring atmark cursor among ('' (atmark cursor)))
+    's' (insert '')
+    't' (attach '')
 
     // Values set are unused.
-    'k' ($y = 1)
-    'l' ($y += 1)
-    'm' ($y -= 1)
-    'n' ($y *= 2)
-    'o' ($y /= 2)
-    'p' (setmark y)
-    'q' (set b)
-    'r' (unset b)
-    's' (-> s)
+    'aa' ($y = 1)
+    'ab' ($y += 1)
+    'ac' ($y -= 1)
+    'ad' ($y *= 2)
+    'ae' ($y /= 2)
+    'af' (setmark y)
+    'ag' (set b)
+    'ah' (unset b)
+    'ai' (-> s)
 
     // Integer tests.
     'A' ($(1 == 1))
@@ -37,6 +47,10 @@ define stem as (
     'E' ($(0 >= 0))
     'F' ($(1 != 0))
   )
+
+  // `setlimit tomark limit for X` is equivalent to just `X`.
+  setlimit tomark limit for 'X'
+
   [substring] among ( // All actions equivalent to `false`.
     '0' (false)
     'a' (fail ())
