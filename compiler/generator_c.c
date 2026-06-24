@@ -1437,7 +1437,7 @@ static void generate_substring(struct generator * g, struct node * p) {
                 w(g, "();~N");
                 // ret > 0: function signalled t.
                 w(g, "~Mif (ret > 0) { ");
-                if (K_needed(g, q->definition)) {
+                if (K_needed(q->definition)) {
                     // Restore cursor if routine may have changed it.
                     w(g, "z->c = c; ");
                 }
@@ -1833,7 +1833,7 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
     if (x > 0) p = increase_capacity_b(p, x);
     memmove(p + n, p, SIZE(p) * sizeof(symbol));
     memmove(p, q, n * sizeof(symbol));
-    SIZE(p) += n;
+    ADD_TO_SIZE(p, n);
     return p;
 }
 
@@ -2015,7 +2015,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (CAPACITY(out) < SIZE(out) + entry_len) {
             out = increase_capacity_b(out, entry_len);
         }
-        SIZE(out) += entry_len;
+        ADD_TO_SIZE(out, entry_len);
         out[offset] = old_exact;
         int segment_len = xfix_len - old_prefix_len;
         out[offset + 1] = segment_len;
@@ -2049,7 +2049,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (!forwards) {
             memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - old_prefix_len, old_prefix_len * 2);
         }
-        SIZE(*xfix_ptr) = old_prefix_len;
+        SET_SIZE(*xfix_ptr, old_prefix_len);
         return offset;
     }
 
@@ -2061,7 +2061,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     if (CAPACITY(out) < SIZE(out) + entry_len) {
         out = increase_capacity_b(out, entry_len);
     }
-    SIZE(out) += entry_len;
+    ADD_TO_SIZE(out, entry_len);
     out[offset] = exact & 0x3fff;
     out[offset + 1] = min + (max << 8);
     for (int i = 0; i < max - min + 1; ++i) {
@@ -2089,7 +2089,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (!forwards) {
             memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - xfix_len, xfix_len * 2);
         }
-        SIZE(*xfix_ptr) = xfix_len;
+        SET_SIZE(*xfix_ptr, xfix_len);
         middle_used = middle_used || (ch > min && ch < max);
     }
     //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
