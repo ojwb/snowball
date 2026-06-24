@@ -2,11 +2,15 @@
 
 externals (stem)
 
-routines (gate)
+routines (gate bgate)
 
 stringescapes {}
 
 define gate as 'q'
+
+backwardmode (
+  define bgate as 'q'
+)
 
 define stem as (
   test (
@@ -15,5 +19,12 @@ define stem as (
       '' gate ()
     )
     ='gated default among case did not fail as expected'
+  )
+  test (
+    backwards among (
+      'a' bgate
+      'bc' bgate
+    )
+    ='gated among did not fail as expected'
   )
 )
