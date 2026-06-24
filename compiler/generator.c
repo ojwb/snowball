@@ -1979,12 +1979,12 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
 //
 // This is potentially inefficient if there are prefixes/suffixes where
 // one is a prefix/suffix of the other and both have among functions (or
-// for a worse case, a chain - e.g. in lovins.sbl there are two such 
+// for a worse case, a chain - e.g. in lovins.sbl there are two such
 // chains of length 5).  We would eagerly call all functions down the
 // chain, whereas we could go until matching stops ignoring the functions
 // and then back up testing functions until we find a prefix/suffix which
 // matches (either without a function or with a function which returns t).
-// In the best case this calls no functions!  The binary-chop implementation 
+// In the best case this calls no functions!  The binary-chop implementation
 // achieves this minimising of among function calls.
 //
 // In practice, only lovins.sbl currently has such chains (finnish.sbl and
