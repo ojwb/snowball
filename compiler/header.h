@@ -228,6 +228,7 @@ struct name {
     bool value_used;            /* (For variables) is its value ever used? */
     bool initialised;           /* (For variables) is it ever initialised? */
     bool used_in_definition;    /* (grouping) used in grouping definition? */
+    bool among_with_function;   /* (routines/externals) contains among with func */
     bool case_collision;        /* A name of the same type differs only by case */
     // (routines/externals) Could this directly or indirectly call itself?
     bool recursive;
