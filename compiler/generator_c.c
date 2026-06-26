@@ -1817,7 +1817,7 @@ static int find_or_add_af(struct among * x,
             x->af[i].t_result == t_result &&
             x->af[i].f_result == f_result &&
             x->af[i].cursor_adjustment == cursor_adjustment) {
-            return i;
+            return i | 0x8000;
         }
     }
     x->af[x->af_count].function = function;
@@ -2022,9 +2022,6 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (min > max) {
             // exact can only be zero here if there is nothing in the among
             // with the specified prefix, which shouldn't happen.
-            // FIXME This assertion fails for some gated amongs currently
-            // (e.g. see bgate among in tests/runtime/among.sbl).  Possibly
-            // resolving the FIXMEs above will address this?
             assert(exact);
             out[offset + 2] = -exact;
         } else {
