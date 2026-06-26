@@ -1434,7 +1434,7 @@ static void generate_substring(struct generator * g, struct node * p) {
                 w(g, "~Mcase ~I0: {~+~N");
                 w(g, "~Mint ret = ");
                 write_varref(g, q);
-                w(g, "();~N");
+                w(g, "(z);~N");
                 // ret > 0: function signalled t.
                 w(g, "~Mif (ret > 0) { ");
                 if (K_needed(q->definition)) {
