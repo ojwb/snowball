@@ -13,18 +13,36 @@ backwardmode (
 )
 
 define stem as (
-  test (
+  not (
     among (
       'x' ()
       '' gate ()
     )
     ='gated default among case did not fail as expected'
   )
-  test (
+  not (
     backwards among (
       'a' bgate
       'bc' bgate
     )
     ='gated among did not fail as expected'
   )
+  test (
+    ='jalovc'
+    backwards (
+      [substring] among (
+        // -c -> -k
+        'c'
+          (<- 'k')
+        'nc'
+        'avc'
+        'ovc'
+          ()
+        'xnc'
+          (<- 'xnk')
+      )
+    )
+    ('jalovc' atlimit) or fail='empty among action mishandled'
+  )
+  ='ok'
 )

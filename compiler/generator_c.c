@@ -1919,7 +1919,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             continue;
         if (v[i].size == xfix_len) {
             exact = v[i].result;
-//            if (exact < 0) exact = 0x3fff;
+            if (exact < 0) exact = 0x3fff;
             if (v[i].function_index) {
                 int cursor_delta;
                 if (v[i].i < 0) {
@@ -1985,7 +1985,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                     continue;
                 if (v[i].size == xfix_len) {
                     exact = v[i].result;
-                  //  if (exact < 0) exact = 0x3fff;
+                    if (exact < 0) exact = 0x3fff;
                     if (v[i].function_index) {
                         printf("### %d/%d %d\n", i, x->literalstring_count, v[i].i);
                         int cursor_delta;
