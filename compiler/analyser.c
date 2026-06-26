@@ -2888,7 +2888,12 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                     if (!r->definition) continue;
                     // Don't try to inline a routine into itself!
                     if (r == n) continue;
-                    if (inline_calls(a, r->definition->left, n)) {
+                    int refs_before = n->references;
+                    bool all_inlined = inline_calls(a, r->definition->left, n);
+                    if (n->references != refs_before) {
+                        r->among_with_function |= n->among_with_function;
+                    }
+                    if (all_inlined) {
                         // All calls to routine `n` have now been inlined
                         // so remove it and move on to the next candidate
                         // for inlining.
