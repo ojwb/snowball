@@ -1929,11 +1929,11 @@ static int build_among_table_(struct generator * g, struct among * x,
                 }
                 printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                        x->number,
-                       v[i].function_index, exact, v[i].i, cursor_delta);
+                       v[i].function_index, exact, v[v[i].i].result, cursor_delta);
                 exact = find_or_add_af(x,
                                        v[i].function,
                                        exact, // FIXME?
-                                       v[i].i, // FIXME
+                                       v[v[i].i].result, // FIXME?
                                        cursor_delta);
             }
             continue;
@@ -1996,11 +1996,11 @@ static int build_among_table_(struct generator * g, struct among * x,
                         }
                         printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                                x->number,
-                               v[i].function_index, exact, v[i].i, cursor_delta);
+                               v[i].function_index, exact, v[v[i].i].result, cursor_delta);
                         exact = find_or_add_af(x,
                                                v[i].function,
                                                exact, // FIXME?
-                                               v[i].i, // FIXME
+                                               v[v[i].i].result, // FIXME?
                                                cursor_delta);
                     }
                     continue;
