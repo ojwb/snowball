@@ -2036,6 +2036,16 @@ static int build_among_table_(struct generator * g, struct among * x,
         ADD_TO_SIZE(out, entry_len);
         out[offset] = old_exact;
         int segment_len = xfix_len - old_prefix_len;
+        // FIXME:
+        // if (segment_len == 1) {
+        //     // It's one entry shorter to encode this as a 1-way switch:
+        //     //   <exact> <char>,<char> <result>
+        //     // vs
+        //     //   <exact> 1,0 <result> <char>,<dummy>
+        //     // FIXME: Need to roll-back changes, or hold off making changes
+        //     // until after this...
+        //     goto handle_as_nway;
+        // }
         out[offset + 1] = segment_len;
         if (min > max) {
             // exact can only be zero here if there is nothing in the among
@@ -2072,6 +2082,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         return offset;
     }
 
+//handle_as_nway:
     // Multiple entries have the specified prefix/suffix and the next byte is
     // not the same for all of them.  We do an N-way dispatch on the next byte.
     //
