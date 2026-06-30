@@ -1445,7 +1445,23 @@ static void generate_substring(struct generator * g, struct node * p) {
             // ret < 0: e.g. slice_check failed in routine.  FIXME: Omit if impossible FIXME: We currently treat this like success...
              //   w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
                 // ret == 0: function signalled f.
-                w(g, "~Mz->c = c0 ~S0 ~I2;~N");
+                if (f_result) {
+                    if (cursor_adjustment < 0) {
+                        printf("*** cursor_adjustment = %d < 0 for f_result = %d\n", cursor_adjustment, f_result);
+                    }
+                    if (cursor_adjustment > 0) {
+                        w(g, "~Mz->c = c0 ~S0 ~I2;~N");
+                    }
+                } else {
+                    // among_var == 0 means the among signals f and the cursor
+                    // will get restored when that signal is handled.
+                    // FIXME: But shouldn't cursor_adjustment be -1 in this case?
+                    // It isn't always...
+                    //assert(cursor_adjustment == -1);
+                    if (cursor_adjustment >= 0) {
+                        printf("*** cursor_adjustment = %d < 0 for f_result = %d\n", cursor_adjustment, f_result);
+                    }
+                }
                 w(g, "~Mamong_var = ~I3;~N");
                 w(g, "~Mbreak;~N");
                 w(g, "~-~M}~N");
