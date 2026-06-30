@@ -1406,16 +1406,16 @@ static void generate_substring(struct generator * g, struct node * p) {
             int among_function_chains = false;
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
-                if ((scenario->t_result & 0xc000) == 0x8000 ||
-                    (scenario->f_result & 0xc000) == 0x8000) {
+                if ((scenario->t_result & 0xC000) == 0x4000 ||
+                    (scenario->f_result & 0xC000) == 0x4000) {
                     among_function_chains = true;
                     break;
                 }
             }
             if (among_function_chains) {
-                w(g, "~Mwhile ((among_var & 0xc000) == 0x8000) {~N~+");
+                w(g, "~Mwhile ((among_var & 0x4000)) {~N~+");
             } else {
-                w(g, "~Mif ((among_var & 0xc000) == 0x8000) {~N~+");
+                w(g, "~Mif ((among_var & 0x4000)) {~N~+");
             }
             w(g, "~Mint c = z->c;~N");
             // FIXME: Or can use smallest all-1 mask that works.
@@ -1812,19 +1812,23 @@ static int find_or_add_af(struct among * x,
                           int t_result,
                           int f_result,
                           int cursor_adjustment) {
+    printf("> find_or_add_af(%.*s, t:%d, f:%d, adj:%d) ",
+           SIZE(function->s), function->s, t_result, f_result, cursor_adjustment);
     for (int i = 0; i < x->af_count; ++i) {
         if (x->af[i].function == function &&
             x->af[i].t_result == t_result &&
             x->af[i].f_result == f_result &&
             x->af[i].cursor_adjustment == cursor_adjustment) {
-            return i | 0x8000;
+            printf(" -> existing entry %d\n", i);
+            return i | 0x4000;
         }
     }
     x->af[x->af_count].function = function;
     x->af[x->af_count].t_result = t_result;
     x->af[x->af_count].f_result = f_result;
     x->af[x->af_count].cursor_adjustment = cursor_adjustment;
-    return x->af_count++ | 0x8000;
+    printf(" -> new entry %d\n", x->af_count);
+    return x->af_count++ | 0x4000;
 }
 
 // Like add_to_b, but insert at the start.
@@ -1891,13 +1895,15 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
 // "xfix" is the suffix or prefix depending on the direction.
 static int build_among_table_(struct generator * g, struct among * x,
                               symbol ** xfix_ptr, symbol * out,
-                              int forwards) {
+                              int forwards, int longest_sub) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("build_among_table_(g, x, \"");
+    printf("A#%d: build_among_table_ ", x->number);
+    if (!forwards) printf("...");
     for (int i = 0; i < SIZE(*xfix_ptr); ++i) {
         putchar((*xfix_ptr)[i]);
     }
-    printf("\", out[%d])\n", (int)SIZE(out));
+    if (forwards) printf("...");
+    printf(" longest_sub=%d, out[%d])\n", longest_sub, (int)SIZE(out));
 #endif
 
     // FIXME:
@@ -1918,8 +1924,9 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (memcmp(b, *xfix_ptr, xfix_len * sizeof(symbol)) != 0)
             continue;
         if (v[i].size == xfix_len) {
+            assert(exact == 0);
             exact = v[i].result;
-            if (exact < 0) exact = 0x3fff;
+            if (exact < 0) { printf(" %d -> 0x3fff\n", exact); exact = 0x3fff; }
             if (v[i].function_index) {
                 int cursor_delta;
                 if (v[i].i < 0) {
@@ -1927,14 +1934,23 @@ static int build_among_table_(struct generator * g, struct among * x,
                 } else {
                     cursor_delta = v[v[i].i].size;
                 }
+                // If the among function signals t, the among result is t_result
+                //   (i.e. variable `exact`)
+                // If the among function signals f:
+                // * If cursor_delta == -1 the among result is 0 (no match)
+                // * Otherwise:
+                //   + cursor_delta is applied to the cursor value on entry (add for
+                //     forwards/subtract for backwards)
+                //   + f_index is ?
                 printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                        x->number,
-                       v[i].function_index, exact, v[v[i].i].result, cursor_delta);
+                       v[i].function_index, exact, longest_sub, cursor_delta);
                 exact = find_or_add_af(x,
                                        v[i].function,
-                                       exact, // FIXME?
-                                       v[v[i].i].result, // FIXME?
+                                       exact,
+                                       longest_sub,
                                        cursor_delta);
+                printf("A#%d F1: -> exact now %d\n", x->number, exact);
             }
             continue;
         }
@@ -1955,7 +1971,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         return -exact;
     }
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("=== %d\n", min_length_match);
+    printf("=== min_length_match = %d\n", min_length_match);
 #endif
 
     int offset = SIZE(out);
@@ -1984,8 +2000,9 @@ static int build_among_table_(struct generator * g, struct among * x,
                 if (memcmp(b, *xfix_ptr, xfix_len * sizeof(symbol)) != 0)
                     continue;
                 if (v[i].size == xfix_len) {
+                    assert(exact == 0);
                     exact = v[i].result;
-                    if (exact < 0) exact = 0x3fff;
+		    if (exact < 0) { printf(" %d -> 0x3fff\n", exact); exact = 0x3fff; }
                     if (v[i].function_index) {
                         printf("### %d/%d %d\n", i, x->literalstring_count, v[i].i);
                         int cursor_delta;
@@ -1996,12 +2013,13 @@ static int build_among_table_(struct generator * g, struct among * x,
                         }
                         printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                                x->number,
-                               v[i].function_index, exact, v[v[i].i].result, cursor_delta);
+                               v[i].function_index, exact, longest_sub, cursor_delta);
                         exact = find_or_add_af(x,
                                                v[i].function,
-                                               exact, // FIXME?
-                                               v[v[i].i].result, // FIXME?
+                                               exact,
+                                               longest_sub,
                                                cursor_delta);
+                        printf("A#%d F2: -> exact now %d\n", x->number, exact);
                     }
                     continue;
                 }
@@ -2025,7 +2043,8 @@ static int build_among_table_(struct generator * g, struct among * x,
             assert(exact);
             out[offset + 2] = -exact;
         } else {
-            out[offset + 2] = build_among_table_(g, x, xfix_ptr, out, forwards);
+            out[offset + 2] = build_among_table_(g, x, xfix_ptr, out, forwards,
+                                                 exact ? exact : longest_sub);
         }
         out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
         char * to = (char*)&(out[offset+3]);
@@ -2085,7 +2104,8 @@ static int build_among_table_(struct generator * g, struct among * x,
         } else {
             *xfix_ptr = prefix_to_b(*xfix_ptr, &ch, 1);
         }
-        out[offset + 2 + (ch - min)] = build_among_table_(g, x, xfix_ptr, out, forwards);
+        out[offset + 2 + (ch - min)] = build_among_table_(g, x, xfix_ptr, out, forwards,
+                                                          exact ? exact : longest_sub);
         if (!forwards) {
             memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - xfix_len, xfix_len * 2);
         }
@@ -2198,7 +2218,7 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
-    build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward));
+    build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward), 0);
     lose_b(xfix);
 
     x->among_table = b;
@@ -2209,7 +2229,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
     write_comment(g, x->node);
     symbol * b = x->among_table;
     g->I[0] = x->number;
-    w(g, "~Mstatic const short a_~I0[] = {~N~+");
+    w(g, "~Mstatic const unsigned short a_~I0[] = {~N~+");
     write_margin(g);
     for (int i = 0; i < SIZE(b); i++) {
         if (i > 0) {
@@ -2219,7 +2239,9 @@ static void generate_among_table(struct generator * g, struct among * x) {
                 w(g, ",~N~M");
             }
         }
-        write_int(g, (int)(short)b[i]);
+        //write_int(g, (int)b[i]);
+        write_string(g, "0x");
+        write_hex4(g, (int)b[i]);
     }
     write_newline(g);
     w(g, "~-~M};~N");

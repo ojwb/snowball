@@ -71,8 +71,8 @@ extern int eq_s_b(struct SN_env * z, int s_size, const symbol * s);
 extern int eq_v(struct SN_env * z, const symbol * p);
 extern int eq_v_b(struct SN_env * z, const symbol * p);
 
-extern int find_among(struct SN_env * z, const short * v);
-extern int find_among_b(struct SN_env * z, const short * v);
+extern int find_among(struct SN_env * z, const unsigned short * v);
+extern int find_among_b(struct SN_env * z, const unsigned short * v);
 
 extern SNOWBALL_ERR replace_s(struct SN_env * z, int c_bra, int c_ket, int s_size, const symbol * s);
 extern SNOWBALL_ERR slice_from_s(struct SN_env * z, int s_size, const symbol * s);

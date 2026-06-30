@@ -356,7 +356,7 @@ static char among_seen[4096];
 
 // FIXME: Need to implement among coverage for new among approach.
 
-extern int find_among(struct SN_env * z, const short * v) {
+extern int find_among(struct SN_env * z, const unsigned short * v) {
     int c = z->c;
     int l = z->l;
     int o = 0;
@@ -371,14 +371,14 @@ extern int find_among(struct SN_env * z, const short * v) {
             z->c = c;
         }
         if (c < l) {
-            unsigned short x = (unsigned short)v[o + 1];
+            unsigned short x = v[o + 1];
             symbol a = x & 0xff;
             symbol b = x >> 8;
             if (b) {
                 /* N-way dispatch. */
                 symbol ch = z->p[c];
                 if (ch >= a && ch <= b) {
-                    o = v[o + (ch - a) + 2];
+                    o = (short)v[o + (ch - a) + 2];
                     if (o) {
                         ++c;
                         continue;
@@ -387,7 +387,7 @@ extern int find_among(struct SN_env * z, const short * v) {
             } else {
                 /* Substring segment. */
                 if (l - c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
-                    o = v[o + 2];
+                    o = (short)v[o + 2];
                     if (o) {
                         c += a;
                         continue;
@@ -400,7 +400,7 @@ extern int find_among(struct SN_env * z, const short * v) {
 }
 
 /* find_among_b is for backwards processing. Same comments apply */
-extern int find_among_b(struct SN_env * z, const short * v) {
+extern int find_among_b(struct SN_env * z, const unsigned short * v) {
     int c = z->c;
     int lb = z->lb;
     int o = 0;
@@ -415,14 +415,14 @@ extern int find_among_b(struct SN_env * z, const short * v) {
             z->c = c;
         }
         if (c > lb) {
-            unsigned short x = (unsigned short)v[o + 1];
+            unsigned short x = v[o + 1];
             symbol a = x & 0xff;
             symbol b = x >> 8;
             if (b) {
                 /* N-way dispatch. */
                 symbol ch = z->p[c - 1];
                 if (ch >= a && ch <= b) {
-                    o = v[o + (ch - a) + 2];
+                    o = (short)v[o + (ch - a) + 2];
                     if (o) {
                         --c;
                         continue;
@@ -431,7 +431,7 @@ extern int find_among_b(struct SN_env * z, const short * v) {
             } else {
                 /* Substring segment. */
                 if (c - lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
-                    o = v[o + 2];
+                    o = (short)v[o + 2];
                     if (o) {
                         c -= a;
                         continue;
