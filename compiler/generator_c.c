@@ -2002,6 +2002,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         //                        ^--- NB this is negated for exact
         int old_prefix_len = xfix_len;
         int old_exact = exact;
+        if (old_exact) longest_sub = old_exact;
         do {
             if (forwards) {
                 *xfix_ptr = add_to_b(*xfix_ptr, &min, 1);
@@ -2071,6 +2072,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             assert(exact);
             out[offset + 2] = -exact;
         } else {
+          printf("XXX : exact = %d longest_sub = %d\n", exact, longest_sub);
             out[offset + 2] = build_among_table_(g, x, xfix_ptr, out, forwards,
                                                  exact ? exact : longest_sub);
         }
@@ -2112,6 +2114,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     }
     ADD_TO_SIZE(out, entry_len);
     out[offset] = exact; // & 0x3fff
+    if (exact) longest_sub = exact;
     out[offset + 1] = min + (max << 8);
     for (int i = 0; i < max - min + 1; ++i) {
         out[offset + 2 + i] = 0;
@@ -2134,6 +2137,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         } else {
             *xfix_ptr = prefix_to_b(*xfix_ptr, &ch, 1);
         }
+          printf("YYY [%.*s]: exact = %d longest_sub = %d\n", SIZE(*xfix_ptr), *xfix_ptr, exact, longest_sub);
         out[offset + 2 + (ch - min)] = build_among_table_(g, x, xfix_ptr, out, forwards,
                                                           exact ? exact : longest_sub);
         if (!forwards) {
