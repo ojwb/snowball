@@ -2099,7 +2099,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         char * to = (char*)&(out[offset+3]);
         symbol * from = *xfix_ptr;
         if (forwards) from += old_prefix_len;
-        for (int i = 0; i < segment_len; ++i) to[i] = from[i];
+        for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
 #ifdef BUILD_AMONG_TABLE_DEBUG
         printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                offset,
