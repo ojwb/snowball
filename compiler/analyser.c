@@ -36,6 +36,14 @@ extern void print_program(struct analyser * a) {
     if (a->program) print_node_(a->program, 0, "");
 }
 
+static void free_among(struct among * q) {
+    FREE(q->b);
+    FREE(q->commands);
+    FREE(q->af);
+    lose_b(q->among_table);
+    FREE(q);
+}
+
 static struct node * new_node_at_line(struct analyser * a, int type, int line) {
     NEW(node, p);
     *p = (struct node){0};
@@ -3037,12 +3045,12 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
             //
             // We only issue a warning about unreachability for routines here
             // to avoid excess diagnostics, since other types must be used in a
-            // routine which is not reachable (or will have been warned about as
+            // routine which is reachable (or will have been warned about as
             // unused by the check above).
             if (q->type == t_routine) {
                 fprintf(stderr, "%s:%d: warning: %s '%.*s' not reachable from any externals\n",
                         a->tokeniser->file,
-                        q->declaration_line_number,
+                        q->definition->line_number,
                         name_of_type(q->type),
                         SIZE(q->s), q->s);
                 remove_routine(a, q);
@@ -3102,6 +3110,7 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
             struct among * x = *a_ptr;
             if (!x->used) {
                 *a_ptr = x->next;
+                free_among(x);
                 continue;
             }
 
@@ -3263,11 +3272,7 @@ extern void close_analyser(struct analyser * a) {
         struct among * q = a->amongs;
         while (q) {
             struct among * q_next = q->next;
-            FREE(q->b);
-            FREE(q->commands);
-            FREE(q->af);
-            lose_b(q->among_table);
-            FREE(q);
+            free_among(q);
             q = q_next;
         }
     }
