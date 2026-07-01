@@ -1231,8 +1231,6 @@ static void generate_define(struct generator * g, struct node * p) {
     // among with functions.
     if (q->among_with_function || amongvar_needed(p->left))
         w(g, "~Mint among_var;~N");
-    if (q->c0_used)
-        w(g, "~Mint c0;~N");
 
     /* Declare localised variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
@@ -1399,7 +1397,8 @@ static void generate_substring(struct generator * g, struct node * p) {
 
     if (x->amongvar_needed || x->function_count) {
         if (x->c0_used) {
-            writef(g, "~Mc0 = z->c;~N", p);
+            write_block_start(g);
+            w(g, "~Mint c0 = z->c;~N");
         }
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
         if (x->function_count) {
@@ -1517,6 +1516,9 @@ static void generate_substring(struct generator * g, struct node * p) {
         }
         if (!x->always_matches) {
             writef(g, "~Mif (!among_var) ~f~N", p);
+        }
+        if (x->c0_used) {
+            write_block_end(g);
         }
         return;
     }
