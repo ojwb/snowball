@@ -1418,8 +1418,16 @@ static void generate_substring(struct generator * g, struct node * p) {
                 w(g, "~Mif ((among_var & 0x4000)) {~N~+");
             }
             w(g, "~Mint c = z->c;~N");
-            // FIXME: Or can use smallest all-1 mask that works.
-            w(g, "~Mswitch (among_var & 0x3fff) {~N~+");
+            assert(x->af_count <= 0x4000);
+            // Use smallest all-1 mask that works.
+            int mask = (x->af_count - 1);
+            mask |= mask >> 1;
+            mask |= mask >> 2;
+            mask |= mask >> 4;
+            mask |= mask >> 8;
+            w(g, "~Mswitch (among_var & 0x");
+            write_hex(g, mask);
+            w(g, ") {~N~+");
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
                 int cursor_adjustment = scenario->cursor_adjustment;
