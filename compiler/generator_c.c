@@ -1232,7 +1232,7 @@ static void generate_define(struct generator * g, struct node * p) {
     if (q->among_with_function || amongvar_needed(p->left))
         w(g, "~Mint among_var;~N");
     if (q->among_with_function)
-        w(g, "~Mint c0; (void)c0;~N"); // FIXME: Only emit if it will be used.
+        w(g, "~Mint c0;~N"); // FIXME: Only emit if it will be used.
 
     /* Declare localised variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
@@ -1465,6 +1465,8 @@ static void generate_substring(struct generator * g, struct node * p) {
                     }
                     if (cursor_adjustment > 0) {
                         w(g, "~Mz->c = c0 ~S0 ~I2;~N");
+                    } else {
+                        w(g, "~M(void)c0;~N");
                     }
                 } else {
                     // among_var == 0 means the among signals f and the cursor
