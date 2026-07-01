@@ -1459,7 +1459,7 @@ static void generate_substring(struct generator * g, struct node * p) {
                     // It isn't always...
                     //assert(cursor_adjustment == -1);
                     if (cursor_adjustment >= 0) {
-                        printf("*** cursor_adjustment = %d < 0 for f_result = %d\n", cursor_adjustment, f_result);
+                        printf("*** cursor_adjustment = %d >= 0 for f_result = %d\n", cursor_adjustment, f_result);
                     }
                 }
                 w(g, "~Mamong_var = ~I3;~N");
@@ -1943,6 +1943,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             assert(exact == 0);
             exact = v[i].result;
             if (exact < 0) { printf(" %d -> 0x3fff\n", exact); exact = 0x3fff; }
+            assert(exact != 0);
             if (v[i].function_index) {
                 int cursor_delta;
                 if (v[i].i < 0) {
