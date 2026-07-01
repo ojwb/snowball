@@ -1425,9 +1425,11 @@ static void generate_substring(struct generator * g, struct node * p) {
             mask |= mask >> 2;
             mask |= mask >> 4;
             mask |= mask >> 8;
-            w(g, "~Mswitch (among_var & 0x");
-            write_hex(g, mask);
-            w(g, ") {~N~+");
+            if (mask != 0) {
+                w(g, "~Mswitch (among_var & 0x");
+                write_hex(g, mask);
+                w(g, ") {~N~+");
+            }
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
                 int cursor_adjustment = scenario->cursor_adjustment;
@@ -1439,7 +1441,11 @@ static void generate_substring(struct generator * g, struct node * p) {
                 g->I[2] = cursor_adjustment;
                 g->I[3] = f_result;
                 g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
-                w(g, "~Mcase ~I0: {~+~N");
+                if (mask != 0) {
+                    w(g, "~Mcase ~I0: {~+~N");
+                } else {
+                    w(g, "~Mdo {~+~N");
+                }
                 w(g, "~Mint ret = ");
                 write_varref(g, q);
                 w(g, "(z);~N");
@@ -1471,8 +1477,12 @@ static void generate_substring(struct generator * g, struct node * p) {
                     }
                 }
                 w(g, "~Mamong_var = ~I3;~N");
-                w(g, "~Mbreak;~N");
-                w(g, "~-~M}~N");
+                if (mask != 0) {
+                    w(g, "~Mbreak;~N");
+                    w(g, "~-~M}~N");
+                } else {
+                    w(g, "~-~M} while (0);~N");
+                }
 #ifdef NOTTHIS
     among_var = find_among(z, a_6);
     while ((among_var & 0xC000) == 0x8000) { // or if () if no chaining
@@ -1498,7 +1508,9 @@ static void generate_substring(struct generator * g, struct node * p) {
     }
 #endif
             }
-            w(g, "~-~M}~N");
+            if (mask != 0) {
+                w(g, "~-~M}~N");
+            }
             w(g, "~-~M}~N");
             // Note: In general may have the same function called by more
             // than one case to handle different results.
