@@ -387,10 +387,11 @@ extern int find_among(struct SN_env * z, const unsigned short * v) {
                 }
             } else {
                 /* Substring segment. */
-                if (l - c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
+                int old_c = c;
+                c += a;
+                if (c <= l && memcmp(z->p + old_c, &v[o + 3], a) == 0) {
                     o = (short)v[o + 2];
                     assert(o);
-                    c += a;
                     continue;
                 }
             }
@@ -430,10 +431,10 @@ extern int find_among_b(struct SN_env * z, const unsigned short * v) {
                 }
             } else {
                 /* Substring segment. */
-                if (c - lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
+                c -= a;
+                if (c >= lb && memcmp(z->p + c, &v[o + 3], a) == 0) {
                     o = (short)v[o + 2];
                     assert(o);
-                    c -= a;
                     continue;
                 }
             }
