@@ -1999,6 +1999,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         // case and then emit a segment to check for.
         // 0       2,-           RES_IES | 'i' 'e'
         // ^exact  ^length,0
+        //                        ^--- NB this is negated for exact
         int old_prefix_len = xfix_len;
         int old_exact = exact;
         do {
@@ -2104,6 +2105,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     // not the same for all of them.  We do an N-way dispatch on the next byte.
     //
     // 0       'd','s'         OFFSET_D 0 0 ... OFFSET_S
+    //                          ^-----------------^-----  NB these negated for exact
     int entry_len = (max - min) + 1 + 2;
     if (CAPACITY(out) < SIZE(out) + entry_len) {
         out = increase_capacity_b(out, entry_len);
@@ -2244,7 +2246,8 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
     symbol * xfix = create_b(32); // prefix/suffix
-    build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward), 0);
+    int root = build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward), 0);
+    assert(root == 0);
     lose_b(xfix);
 
     x->among_table = b;
