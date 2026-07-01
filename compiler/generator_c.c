@@ -2109,7 +2109,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         out = increase_capacity_b(out, entry_len);
     }
     ADD_TO_SIZE(out, entry_len);
-    out[offset] = exact & 0x3fff;
+    out[offset] = exact; // & 0x3fff
     out[offset + 1] = min + (max << 8);
     for (int i = 0; i < max - min + 1; ++i) {
         out[offset + 2 + i] = 0;
