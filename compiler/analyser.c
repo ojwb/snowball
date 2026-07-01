@@ -3265,6 +3265,8 @@ extern void close_analyser(struct analyser * a) {
             struct among * q_next = q->next;
             FREE(q->b);
             FREE(q->commands);
+            FREE(q->af);
+            lose_b(q->among_table);
             FREE(q);
             q = q_next;
         }
