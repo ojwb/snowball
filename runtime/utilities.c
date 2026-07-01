@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -388,10 +389,9 @@ extern int find_among(struct SN_env * z, const unsigned short * v) {
                 /* Substring segment. */
                 if (l - c >= a && memcmp(z->p + c, &v[o + 3], a) == 0) {
                     o = (short)v[o + 2];
-                    if (o) {
-                        c += a;
-                        continue;
-                    }
+                    assert(o);
+                    c += a;
+                    continue;
                 }
             }
         }
@@ -432,10 +432,9 @@ extern int find_among_b(struct SN_env * z, const unsigned short * v) {
                 /* Substring segment. */
                 if (c - lb >= a && memcmp(z->p + c - a, &v[o + 3], a) == 0) {
                     o = (short)v[o + 2];
-                    if (o) {
-                        c -= a;
-                        continue;
-                    }
+                    assert(o);
+                    c -= a;
+                    continue;
                 }
             }
         }
