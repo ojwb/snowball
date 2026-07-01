@@ -1231,8 +1231,8 @@ static void generate_define(struct generator * g, struct node * p) {
     // among with functions.
     if (q->among_with_function || amongvar_needed(p->left))
         w(g, "~Mint among_var;~N");
-    if (q->among_with_function)
-        w(g, "~Mint c0;~N"); // FIXME: Only emit if it will be used.
+    if (q->c0_used)
+        w(g, "~Mint c0;~N");
 
     /* Declare localised variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
