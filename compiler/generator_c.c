@@ -2238,8 +2238,6 @@ static void build_among_table(struct generator * g, struct among * x) {
     }
     if (among_function_scenario_count_ub) {
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
-        // FIXME Hack because we can exceed our upper bound - what's going on?
-        among_function_scenario_count_ub = among_function_scenario_count_ub * 2 + 20;
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
