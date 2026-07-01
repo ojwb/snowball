@@ -355,7 +355,7 @@ extern int eq_v_b(struct SN_env * z, const symbol * p) {
 static char among_seen[4096];
 #endif
 
-// FIXME: Need to implement among coverage for new among approach.
+/* FIXME: Need to implement among coverage for new among approach. */
 
 extern int find_among(struct SN_env * z, const unsigned short * v) {
     int c = z->c;
