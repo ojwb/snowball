@@ -292,6 +292,7 @@ struct among {
     bool amongvar_needed;     /* do we need to set among_var? */
     bool always_matches;      /* will this among always match? */
     bool used;                /* is this among in reachable code? */
+    bool c0_used;             /* Need c0 variable in C implementation? */
     int same_action;          /* type code if same for all actions; <0 otherwise */
     int shortest_size;        /* smallest non-zero string length in this among */
     int longest_size;         /* longest string length in this among */

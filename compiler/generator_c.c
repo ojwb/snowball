@@ -1398,7 +1398,7 @@ static void generate_substring(struct generator * g, struct node * p) {
     }
 
     if (x->amongvar_needed || x->function_count) {
-        if (x->function_count) {
+        if (x->c0_used) {
             writef(g, "~Mc0 = z->c;~N", p);
         }
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
@@ -1465,8 +1465,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                     }
                     if (cursor_adjustment > 0) {
                         w(g, "~Mz->c = c0 ~S0 ~I2;~N");
-                    } else {
-                        w(g, "~M(void)c0;~N");
                     }
                 } else {
                     // among_var == 0 means the among signals f and the cursor
@@ -1866,6 +1864,7 @@ static int find_or_add_af(struct among * x,
     x->af[x->af_count].f_result = f_result;
     x->af[x->af_count].cursor_adjustment = cursor_adjustment;
     printf(" -> new entry %d\n", x->af_count);
+    x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
     return x->af_count++ | 0x4000;
 }
 
