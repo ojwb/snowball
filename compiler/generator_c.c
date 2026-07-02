@@ -5,7 +5,7 @@
 #include <string.h> /* for strlen */
 #include "header.h"
 
-#define BUILD_AMONG_TABLE_DEBUG
+//#define BUILD_AMONG_TABLE_DEBUG
 
 // C90 guarantees 31 significant initial characters in an internal identifier.
 #define C_MAX_ID_LEN 31
@@ -1455,13 +1455,16 @@ static void generate_substring(struct generator * g, struct node * p) {
                     w(g, "z->c = c; ");
                 }
                 w(g, "among_var = ~I1; break; }~N");
-            // ret < 0: e.g. slice_check failed in routine.  FIXME: Omit if impossible FIXME: We currently treat this like success...
-             //   w(g, "~Mif (ret < 0) { among_var = 0; break; }~N");
-                // ret == 0: function signalled f.
+                if (g->options->target_lang == LANG_C) {
+                    // FIXME: w(g, "~Mif (ret < 0) { handle slice_check failed in routine... }~N");
+                    // FIXME: But omit when this can't happen...
+                }
                 if (f_result) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
                     if (cursor_adjustment < 0) {
                         printf("*** cursor_adjustment = %d < 0 for f_result = %d\n", cursor_adjustment, f_result);
                     }
+#endif
                     if (cursor_adjustment > 0) {
                         w(g, "~Mz->c = c0 ~S0 ~I2;~N");
                     }
@@ -1471,9 +1474,11 @@ static void generate_substring(struct generator * g, struct node * p) {
                     // FIXME: But shouldn't cursor_adjustment be -1 in this case?
                     // It isn't always...
                     //assert(cursor_adjustment == -1);
+#ifdef BUILD_AMONG_TABLE_DEBUG
                     if (cursor_adjustment >= 0) {
                         printf("*** cursor_adjustment = %d >= 0 for f_result = %d\n", cursor_adjustment, f_result);
                     }
+#endif
                 }
                 w(g, "~Mamong_var = ~I3;~N");
                 if (mask != 0) {
@@ -1482,30 +1487,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                 } else {
                     w(g, "~-~M} while (0);~N");
                 }
-#ifdef NOTTHIS
-    among_var = find_among(z, a_6);
-    while ((among_var & 0xC000) == 0x8000) { // or if () if no chaining
-        int c = z->c;
-        switch (among_var & 0x3fff) { // Or can use smallest all-1 mask that works.
-            // Need a case for each unique (routine, cursor_adjustment, result) tuple
-            case 0: {
-                ret = r_VI();
-                z->c = c; // Only needed if r_VI can modify c.
-                if (ret > 0) { among_var = -1; break; } // Successful result.
-                if (ret == 0) { among_var = 0; break; } // Chain here... setting z->c = c - N; or c + N;
-                among_var = 0; // E.g. slice_check failed in routine.
-                break;
-            }
-            // In general may have the same function called by more
-            // than one case to handle different results.
-            case 1: {
-                ret = r_LONG();
-                // ...
-                break;
-            }
-        }
-    }
-#endif
             }
             if (mask != 0) {
                 w(g, "~-~M}~N");
@@ -1850,14 +1831,18 @@ static int find_or_add_af(struct among * x,
                           int t_result,
                           int f_result,
                           int cursor_adjustment) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("> find_or_add_af(%.*s, t:%d, f:%d, adj:%d) ",
            SIZE(function->s), function->s, t_result, f_result, cursor_adjustment);
+#endif
     for (int i = 0; i < x->af_count; ++i) {
         if (x->af[i].function == function &&
             x->af[i].t_result == t_result &&
             x->af[i].f_result == f_result &&
             x->af[i].cursor_adjustment == cursor_adjustment) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
             printf(" -> existing entry %d\n", i);
+#endif
             return i | 0x4000;
         }
     }
@@ -1865,7 +1850,9 @@ static int find_or_add_af(struct among * x,
     x->af[x->af_count].t_result = t_result;
     x->af[x->af_count].f_result = f_result;
     x->af[x->af_count].cursor_adjustment = cursor_adjustment;
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf(" -> new entry %d\n", x->af_count);
+#endif
     x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
     return x->af_count++ | 0x4000;
 }
@@ -1965,7 +1952,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         if (v[i].size == xfix_len) {
             assert(exact == 0);
             exact = v[i].result;
-            if (exact < 0) { printf(" %d -> 0x3fff\n", exact); exact = 0x3fff; }
+            if (exact < 0) exact = 0x3fff;
             assert(exact != 0);
             if (v[i].function_index) {
                 int cursor_delta;
@@ -1982,15 +1969,19 @@ static int build_among_table_(struct generator * g, struct among * x,
                 //   + cursor_delta is applied to the cursor value on entry (add for
                 //     forwards/subtract for backwards)
                 //   + f_index is ?
+#ifdef BUILD_AMONG_TABLE_DEBUG
                 printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                        x->number,
                        v[i].function_index, exact, longest_sub, cursor_delta);
+#endif
                 exact = find_or_add_af(x,
                                        v[i].function,
                                        exact,
                                        longest_sub,
                                        cursor_delta);
+#ifdef BUILD_AMONG_TABLE_DEBUG
                 printf("A#%d F1: -> exact now %d\n", x->number, exact);
+#endif
             }
             continue;
         }
@@ -2044,24 +2035,30 @@ static int build_among_table_(struct generator * g, struct among * x,
                 if (v[i].size == xfix_len) {
                     assert(exact == 0);
                     exact = v[i].result;
-		    if (exact < 0) { printf(" %d -> 0x3fff\n", exact); exact = 0x3fff; }
+		    if (exact < 0) { exact = 0x3fff; }
                     if (v[i].function_index) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
                         printf("### %d/%d %d\n", i, x->literalstring_count, v[i].i);
+#endif
                         int cursor_delta;
                         if (v[i].i < 0) {
                             cursor_delta = -1;
                         } else {
                             cursor_delta = v[v[i].i].size;
                         }
+#ifdef BUILD_AMONG_TABLE_DEBUG
                         printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
                                x->number,
                                v[i].function_index, exact, longest_sub, cursor_delta);
+#endif
                         exact = find_or_add_af(x,
                                                v[i].function,
                                                exact,
                                                longest_sub,
                                                cursor_delta);
+#ifdef BUILD_AMONG_TABLE_DEBUG
                         printf("A#%d F2: -> exact now %d\n", x->number, exact);
+#endif
                     }
                     continue;
                 }
@@ -2190,7 +2187,9 @@ static int build_among_table_(struct generator * g, struct among * x,
 
 static void build_among_table(struct generator * g, struct among * x) {
     // FIXME: Handle o->coverage
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("\nbuild_among_table for A#%d on line %d with %d strings\n", x->number, x->node->line_number, x->literalstring_count);
+#endif
     // Idea for new approach to among:
     // consider (in backwards mode):
     //
@@ -2264,7 +2263,9 @@ static void build_among_table(struct generator * g, struct among * x) {
         if (x->b[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
+#endif
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
