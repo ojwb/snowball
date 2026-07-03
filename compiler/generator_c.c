@@ -1290,7 +1290,7 @@ static void generate_substring(struct generator * g, struct node * p) {
     struct among * x = p->among;
     int block = -1;
     unsigned int bitmap = 0;
-    struct amongvec * among_cases = x->b;
+    struct amongvec * among_cases = x->v;
     int empty_case = -1;
     int n_cases = 0;
     symbol cases[2];
@@ -1936,7 +1936,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     // Emit file to feed into `dot` from graphviz to draw the tree which is
     // created from the among.
 
-    struct amongvec * v = x->b;
+    struct amongvec * v = x->v;
 
     // Find all entries with the current prefix/suffix.
     symbol min = (symbol)-1; // symbol is an unsigned type.
@@ -2260,7 +2260,7 @@ static void build_among_table(struct generator * g, struct among * x) {
     // Calculate an upper bound on the number of different function scenarios.
     int among_function_scenario_count_ub = 0;
     for (int i = 0; i < x->literalstring_count; i++) {
-        if (x->b[i].function) ++among_function_scenario_count_ub;
+        if (x->v[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
 #ifdef BUILD_AMONG_TABLE_DEBUG

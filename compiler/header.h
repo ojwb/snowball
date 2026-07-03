@@ -279,7 +279,7 @@ struct among_function_scenario {
 
 struct among {
     struct among * next;
-    struct amongvec * b;      /* pointer to the amongvec */
+    struct amongvec * v;      /* pointer to the amongvec */
     // Details of how to handle among functions.
     struct among_function_scenario * af;
     int af_count;             /* number of entries in af. */
