@@ -1403,7 +1403,32 @@ static void generate_substring(struct generator * g, struct node * p) {
             w(g, "~Mint c0 = z->c;~N");
         }
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
+        if (g->options->coverage) {
+            // With -coverage enabled, we build the among table to return a
+            // unique value for each among string, and generate a table to map
+            // that to the among_var value.
+            write_block_start(g);
+            w(g, "~Mstatic const int t[] = { ");
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                if (c) write_string(g, ", ");
+                write_int(g, among_cases[c].result);
+            }
+            w(g, "~M };~N");
+            w(g, "~Mamong_var = t[among_var - 1];~N");
+            write_block_end(g);
+        }
         if (x->function_count) {
+            // We implement among functions by generating code which calls the
+            // function and adjusts among_var and the cursor if it fails.
+            // If there is a chain of among functions (e.g. lovins.sbl has two
+            // such chains of length 5) then we loop along the chain if an
+            // among function fails.
+            //
+            // This approach minimises calling of among functions, which is
+            // good since an among function can be arbitrarily expensive (it
+            // will call the same among functions as the original among
+            // implementation).  It also avoids needing a dispatch function or
+            // dynamic load-time relocations.
             int among_function_chains = false;
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
@@ -1863,30 +1888,7 @@ static int find_or_add_af(struct among * x,
     return x->af_count++ | AFS_FLAG;
 }
 
-// FIXME: Need to encode function_index.
-//
-// The simplest approach seems to be to call the function as we descend the
-// tree of possible prefixes/suffixes.  If it passes, we update the best
-// candidate so far; if not we handle as we would for no entry/no match.
-//
-// This is potentially inefficient if there are prefixes/suffixes where
-// one is a prefix/suffix of the other and both have among functions (or
-// for a worse case, a chain - e.g. in lovins.sbl there are two such
-// chains of length 5).  We would eagerly call all functions down the
-// chain, whereas we could go until matching stops ignoring the functions
-// and then back up testing functions until we find a prefix/suffix which
-// matches (either without a function or with a function which returns t).
-// In the best case this calls no functions!  The binary-chop implementation
-// achieves this minimising of among function calls.
-//
-// In practice, only lovins.sbl currently has such chains (finnish.sbl and
-// hindi.sbl don't; esperanto.sbl and indonesian.sbl have been refactored to
-// avoid among functions, but of the old versions: esperanto had a chain -n ->
-// -jn but the among function on both tested `'-' or digit` so in practice we
-// would only call one among function with the eager approach; indonesian.sbl
-// had a chain -an -> -kan where we would sometimes need to call the functions
-// for both).
-//
+
 // FIXME: we could track a threshold to include in the limit check at each
 // point and avoid checking when the string is too short for any remaining
 // options.  This would be added in the first limit check and mean we would
@@ -1918,9 +1920,9 @@ static int find_or_add_af(struct among * x,
 // consecutive - more precisely:
 // * if `forwards`, by ASCII string order of the prefixes;
 // * if `!forwards`, by ASCII string order of the reversed suffixes.
-// We take advantage of this and pass in a range of entries (via
-// start index `lo` and end index `hi`) and just look at that range, shrinking
-// it for recursive calls.
+// We take advantage of this and pass in a range of entries (via start index
+// `lo` and end index `hi`) and just look at that range, shrinking it for
+// recursive calls.
 
 static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
     assert(i < v->size);
@@ -1975,7 +1977,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     if (v[lo].size == xfix_len) {
         // The current prefix/suffix is exactly present in this among.
         struct amongvec *v_exact = v + lo;
-        exact = v_exact->result;
+        exact = g->options->coverage ? lo + 1 : v_exact->result;
         if (exact < 0) exact = AFS_FLAG - 1;
         assert(exact != 0);
         if (v_exact->function_index) {
@@ -2046,7 +2048,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             int old_exact = exact;
             if (old_exact) longest_sub = old_exact;
             if (xfix_len == size_limit) {
-                exact = v[lo].result;
+                exact = g->options->coverage ? lo + 1 : v[lo].result;
                 if (exact < 0) exact = AFS_FLAG - 1;
                 if (v[lo].function_index) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
@@ -2269,6 +2271,7 @@ static void build_among_table(struct generator * g, struct among * x) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
 #endif
+//        among_function_scenario_count_ub = x->literalstring_count; // FIXME
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
