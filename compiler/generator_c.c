@@ -1908,9 +1908,13 @@ static int find_or_add_af(struct among * x,
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
 // accented versions).
 
-// FIXME: The amongvec is sorted such that common suffix/prefix strings are
-// consecutive, so we can pass in a start and end index and just look at
-// that range, shrinking it for recursive calls.
+// The amongvec is sorted such that common suffix/prefix strings are
+// consecutive - more precisely:
+// * if `forwards`, by ASCII string order of the prefixes;
+// * if `!forwards`, by ASCII string order of the reversed suffixes.
+// We take advantage of this and pass in a range of entries (via
+// start index `lo` and end index `hi`) and just look at that range, shrinking
+// it for recursive calls.
 
 static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
     assert(i < v->size);
@@ -1956,11 +1960,6 @@ static int build_among_table_(struct generator * g, struct among * x,
         }
         assert(memcmp(b0, b, xfix_len * sizeof(symbol)) == 0);
     }
-
-    // We rely heavily here on the amongvec entries being sorted in a suitable
-    // way:
-    // * if `forwards`, by ASCII string order of the prefixes;
-    // * if `!forwards`, by ASCII string order of the reversed suffixes.
 
     // FIXME:
     // Emit file to feed into `dot` from graphviz to draw the tree which is
