@@ -1857,16 +1857,6 @@ static int find_or_add_af(struct among * x,
     return x->af_count++ | 0x4000;
 }
 
-// Like add_to_b, but insert at the start.
-static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
-    int x = SIZE(p) + n - CAPACITY(p);
-    if (x > 0) p = increase_capacity_b(p, x);
-    memmove(p + n, p, SIZE(p) * sizeof(symbol));
-    memmove(p, q, n * sizeof(symbol));
-    ADD_TO_SIZE(p, n);
-    return p;
-}
-
 // FIXME: Need to encode function_index.
 //
 // The simplest approach seems to be to call the function as we descend the
@@ -1917,216 +1907,242 @@ static symbol * prefix_to_b(symbol * p, const symbol * q, int n) {
 // Or support two ranges - when the range is sparse, it's usually due to
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
 // accented versions).
-//
+
+// FIXME: The amongvec is sorted such that common suffix/prefix strings are
+// consecutive, so we can pass in a start and end index and just look at
+// that range, shrinking it for recursive calls.
+
+static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
+    assert(i < v->size);
+    return v->b[forwards ? i : v->size - 1 - i];
+}
+
 // "xfix" is the suffix or prefix depending on the direction.
 static int build_among_table_(struct generator * g, struct among * x,
-                              symbol ** xfix_ptr, symbol * out,
+                              int lo, int hi, int xfix_len,
+                              symbol * out,
                               int forwards, int longest_sub) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("A#%d: build_among_table_ ", x->number);
+    struct amongvec * v = x->v;
+
+    static int depth = 0;
+    char * indent = "                " + (depth > 16 ? 0 : 16 - depth);
+    ++depth;
+#if 1 //def BUILD_AMONG_TABLE_DEBUG
+    printf("%sA#%d: build_among_table_ lo=%d hi=%d xfix_len=%d %swards ",
+           indent, x->number,
+           lo, hi, xfix_len, forwards ? "for" : "back");
     if (!forwards) printf("...");
-    for (int i = 0; i < SIZE(*xfix_ptr); ++i) {
-        putchar((*xfix_ptr)[i]);
+    {
+        symbol * b = v[lo].b;
+        if (!forwards) b += v[lo].size - xfix_len;
+        for (int i = 0; i < xfix_len; ++i) {
+            putchar(b[i]);
+        }
+        if (forwards) printf("...");
     }
-    if (forwards) printf("...");
     printf(" longest_sub=%d, out[%d])\n", longest_sub, (int)SIZE(out));
 #endif
+
+    assert(lo <= hi);
+    assert(xfix_len >= 0);
+    assert(xfix_len <= v[lo].size);
+    for (int i = lo + 1; i <= hi; ++i) {
+        assert(xfix_len < v[i].size);
+        symbol * b0 = v[lo].b;
+        symbol * b = v[i].b;
+        if (!forwards) {
+            b0 += v[lo].size - xfix_len;
+            b += v[i].size - xfix_len;
+        }
+        assert(memcmp(b0, b, xfix_len * sizeof(symbol)) == 0);
+    }
+
+    // We rely heavily here on the amongvec entries being sorted in a suitable
+    // way:
+    // * if `forwards`, by ASCII string order of the prefixes;
+    // * if `!forwards`, by ASCII string order of the reversed suffixes.
 
     // FIXME:
     // Emit file to feed into `dot` from graphviz to draw the tree which is
     // created from the among.
 
-    struct amongvec * v = x->v;
-
-    // Find all entries with the current prefix/suffix.
-    symbol min = (symbol)-1; // symbol is an unsigned type.
-    symbol max = 0;
     int exact = 0;
-    int xfix_len = SIZE(*xfix_ptr);
-    int min_length_match = INT_MAX;
-    for (int i = 0; i < x->literalstring_count; i++) {
-        if (v[i].size < xfix_len) continue;
-        symbol * b = forwards ? v[i].b : v[i].b + v[i].size - xfix_len;
-        if (memcmp(b, *xfix_ptr, xfix_len * sizeof(symbol)) != 0)
-            continue;
-        if (v[i].size == xfix_len) {
-            assert(exact == 0);
-            exact = v[i].result;
-            if (exact < 0) exact = 0x3fff;
-            assert(exact != 0);
-            if (v[i].function_index) {
-                int cursor_delta;
-                if (v[i].i < 0) {
-                    cursor_delta = -1;
-                } else {
-                    cursor_delta = v[v[i].i].size;
-                }
-                // If the among function signals t, the among result is t_result
-                //   (i.e. variable `exact`)
-                // If the among function signals f:
-                // * If cursor_delta == -1 the among result is 0 (no match)
-                // * Otherwise:
-                //   + cursor_delta is applied to the cursor value on entry (add for
-                //     forwards/subtract for backwards)
-                //   + f_index is ?
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                printf("A#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
-                       x->number,
-                       v[i].function_index, exact, longest_sub, cursor_delta);
-#endif
-                exact = find_or_add_af(x,
-                                       v[i].function,
-                                       exact,
-                                       longest_sub,
-                                       cursor_delta);
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                printf("A#%d F1: -> exact now %d\n", x->number, exact);
-#endif
+    if (v[lo].size == xfix_len) {
+        // The current prefix/suffix is exactly present in this among.
+        struct amongvec *v_exact = v + lo;
+        exact = v_exact->result;
+        if (exact < 0) exact = 0x3fff;
+        assert(exact != 0);
+        if (v_exact->function_index) {
+            int cursor_delta;
+            if (v_exact->i < 0) {
+                cursor_delta = -1;
+            } else {
+                cursor_delta = v[v_exact->i].size;
             }
-            continue;
-        }
-        if (v[i].size < min_length_match) min_length_match = v[i].size;
-        symbol ch = v[i].b[forwards ? xfix_len : v[i].size - 1 - xfix_len];
-        if (ch < min) min = ch;
-        if (ch > max) max = ch;
-    }
-    if (min > max) {
-        // No entries have the current prefix/suffix.
+            // If the among function signals t, the among result is t_result
+            //   (i.e. variable `exact`)
+            // If the among function signals f:
+            // * If cursor_delta == -1 the among result is 0 (no match)
+            // * Otherwise:
+            //   + cursor_delta is applied to the cursor value on entry (add for
+            //     forwards/subtract for backwards)
+            //   + f_index is ?
 #ifdef BUILD_AMONG_TABLE_DEBUG
-        printf("nothing with prefix [");
-        for (int i = 0; i < xfix_len; ++i) {
-            putchar((*xfix_ptr)[i]);
-        }
-        printf("], exact = %d\n", exact);
+            printf("%sA#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                   indent, x->number,
+                   v_exact->function_index, exact, longest_sub, cursor_delta);
 #endif
-        return -exact;
-    }
+            exact = find_or_add_af(x,
+                                   v_exact->function,
+                                   exact,
+                                   longest_sub,
+                                   cursor_delta);
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("=== min_length_match = %d\n", min_length_match);
+            printf("%sA#%d F1: -> exact now %d\n", indent, x->number, exact);
 #endif
+        }
+        if (lo == hi) {
+            printf("%sRETURN -%d (lo == hi == %d)\n", indent, exact, lo);
+            --depth;
+            return -exact;
+        }
+        ++lo;
+    }
 
     int offset = SIZE(out);
+
+    symbol min = xfix_ch(v + lo, xfix_len, forwards);
+    symbol max = xfix_ch(v + hi, xfix_len, forwards);
 
     if (min == max) {
         // All entries with the current prefix/suffix have the same next byte.
         // Check following bytes until we find where that stops being the
-        // case and then emit a segment to check for.
-        // 0       2,-           RES_IES | 'i' 'e'
-        // ^exact  ^length,0
-        //                        ^--- NB this is negated for exact
-        int old_prefix_len = xfix_len;
-        int old_exact = exact;
-        if (old_exact) longest_sub = old_exact;
-        do {
-            if (forwards) {
-                *xfix_ptr = add_to_b(*xfix_ptr, &min, 1);
-            } else {
-                *xfix_ptr = prefix_to_b(*xfix_ptr, &min, 1);
-            }
-            ++xfix_len;
-            min = (symbol)-1; // symbol is an unsigned type.
-            max = 0;
-            exact = 0;
-            for (int i = 0; i < x->literalstring_count; i++) {
-                if (v[i].size < xfix_len) continue;
-                symbol * b = forwards ? v[i].b : v[i].b + v[i].size - xfix_len;
-                if (memcmp(b, *xfix_ptr, xfix_len * sizeof(symbol)) != 0)
-                    continue;
-                if (v[i].size == xfix_len) {
-                    assert(exact == 0);
-                    exact = v[i].result;
-		    if (exact < 0) { exact = 0x3fff; }
-                    if (v[i].function_index) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                        printf("### %d/%d %d\n", i, x->literalstring_count, v[i].i);
-#endif
-                        int cursor_delta;
-                        if (v[i].i < 0) {
-                            cursor_delta = -1;
-                        } else {
-                            cursor_delta = v[v[i].i].size;
-                        }
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                        printf("A#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
-                               x->number,
-                               v[i].function_index, exact, longest_sub, cursor_delta);
-#endif
-                        exact = find_or_add_af(x,
-                                               v[i].function,
-                                               exact,
-                                               longest_sub,
-                                               cursor_delta);
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                        printf("A#%d F2: -> exact now %d\n", x->number, exact);
-#endif
-                    }
-                    continue;
-                }
-                symbol ch = v[i].b[forwards ? xfix_len : v[i].size - 1 - xfix_len];
-                if (ch < min) min = ch;
-                if (ch > max) max = ch;
-            }
-        } while (min == max && exact == 0);
+        // case.
+        int old_xfix_len = xfix_len;
+        int size_limit = v[lo].size < v[hi].size ? v[lo].size : v[hi].size;
+        while (++xfix_len < size_limit) {
+            symbol lo_ch = xfix_ch(v + lo, xfix_len, forwards);
+            symbol hi_ch = xfix_ch(v + hi, xfix_len, forwards);
+            if (lo_ch != hi_ch) break;
+        }
 
-        int entry_len = ((xfix_len - old_prefix_len + 1) >> 1) + 3;
-        if (CAPACITY(out) < SIZE(out) + entry_len) {
-            out = increase_capacity_b(out, entry_len);
-        }
-        ADD_TO_SIZE(out, entry_len);
-        out[offset] = old_exact;
-        int segment_len = xfix_len - old_prefix_len;
-        // FIXME:
-        // if (segment_len == 1) {
-        //     // It's one entry shorter to encode this as a 1-way switch:
-        //     //   <exact> <char>,<char> <result>
-        //     // vs
-        //     //   <exact> 1,0 <result> <char>,<dummy>
-        //     // FIXME: Need to roll-back changes, or hold off making changes
-        //     // until after this...
-        //     goto handle_as_nway;
-        // }
-        out[offset + 1] = segment_len;
-        if (min > max) {
-            // exact can only be zero here if there is nothing in the among
-            // with the specified prefix, which shouldn't happen.
-            assert(exact);
-            out[offset + 2] = -exact;
-        } else {
-            out[offset + 2] = build_among_table_(g, x, xfix_ptr, out, forwards,
-                                                 exact ? exact : longest_sub);
-        }
-        out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
-        char * to = (char*)&(out[offset+3]);
-        symbol * from = *xfix_ptr;
-        if (forwards) from += old_prefix_len;
-        for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
-#ifdef BUILD_AMONG_TABLE_DEBUG
-        printf("%d:\t%d\t%d,-\t%d\t\"%.*s\"",
-               offset,
-               out[offset],
-               out[offset + 1],
-               out[offset + 2],
-               segment_len,
-               (char*)&out[offset + 3]);
-        printf("\t[");
-        for (int i = 0; i < old_prefix_len; ++i) {
-            putchar((*xfix_ptr)[i]);
-        }
-        printf("]\n");
+        // We only encode a segment of length two or more, since a 1-way switch
+        // is one word shorter and slightly easier to decode than length-1
+        // segment.
+        int segment_len = xfix_len - old_xfix_len;
+        printf("%ssegment_len = %d\n", indent, segment_len);
+        if (segment_len > 1) { // FIXME use this eventually
+//        if (segment_len >= 1) { // 
+            // Emit a segment to check for.
+            // 0       2,-           RES_IES | 'i' 'e'
+            // ^exact  ^length,0
+            //                        ^--- NB this is negated for exact
+            int old_exact = exact;
+            if (old_exact) longest_sub = old_exact;
+            if (xfix_len == size_limit) {
+#if 0
+                if (exact) {
+                    printf("%sRETURN -%d (xfix_len == size_limit == %d)\n",
+                           indent, exact, xfix_len);
+                    --depth;
+                    return -exact;
+                }
 #endif
-        if (!forwards) {
-            memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - old_prefix_len, old_prefix_len * 2);
+#if 1
+                exact = v[lo].result;
+                if (exact < 0) { exact = 0x3fff; }
+                if (v[lo].function_index) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
+                    printf("%s### %d/%d %d\n",
+                           indent, lo, x->literalstring_count, v[lo].i);
+#endif
+                    int cursor_delta;
+                    if (v[lo].i < 0) {
+                        cursor_delta = -1;
+                    } else {
+                        cursor_delta = v[v[lo].i].size;
+                    }
+#ifdef BUILD_AMONG_TABLE_DEBUG
+                    printf("%sA#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
+                           indent, x->number,
+                           v[lo].function_index, exact, longest_sub, cursor_delta);
+#endif
+                    exact = find_or_add_af(x,
+                                           v[lo].function,
+                                           exact,
+                                           longest_sub,
+                                           cursor_delta);
+#ifdef BUILD_AMONG_TABLE_DEBUG
+                    printf("%sA#%d F2: -> exact now %d\n",
+                           indent, x->number, exact);
+#endif
+                }
+#endif
+            }
+
+            int entry_len = ((segment_len + 1) >> 1) + 3;
+            if (CAPACITY(out) < SIZE(out) + entry_len) {
+                out = increase_capacity_b(out, entry_len);
+            }
+            ADD_TO_SIZE(out, entry_len);
+            out[offset] = old_exact;
+            out[offset + 1] = segment_len;
+            if (min > max) {
+                // exact can only be zero here if there is nothing in the among
+                // with the specified prefix, which shouldn't happen.
+                assert(exact);
+                out[offset + 2] = -exact;
+            } else {
+                // FIXME: We know there's not a segment next, so can we
+                // shortcut the recursion and just drop through to the code below?
+                out[offset + 2] = build_among_table_(g, x, lo, hi, xfix_len,
+                                                     out, forwards,
+                                                     exact ? exact : longest_sub);
+            }
+            out[offset + 3 + ((segment_len - 1) >> 1)] = 0;
+            char * to = (char*)&(out[offset+3]);
+            symbol * from = v[lo].b;
+            if (forwards) from += old_xfix_len; else from += v[lo].size - old_xfix_len - segment_len;
+            for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
+#ifdef BUILD_AMONG_TABLE_DEBUG
+            printf("%s%d:\t%d\t%d,-\t%d\t\"%.*s\"",
+                   indent,
+                   offset,
+                   out[offset],
+                   out[offset + 1],
+                   out[offset + 2],
+                   segment_len,
+                   (char*)&out[offset + 3]);
+            printf("\t[");
+            symbol * b = v[lo].b;
+            if (!forwards) b += v[lo].size - old_xfix_len;
+            for (int i = 0; i < old_xfix_len; ++i) {
+                putchar(b[i]);
+            }
+            printf("]\n");
+#endif
+            printf("%sRETURN %d (offset)\n", indent, offset);
+            --depth;
+            return offset;
         }
-        SET_SIZE(*xfix_ptr, old_prefix_len);
-        return offset;
+        xfix_len = old_xfix_len;
     }
 
-//handle_as_nway:
-    // Multiple entries have the specified prefix/suffix and the next byte is
-    // not the same for all of them.  We do an N-way dispatch on the next byte.
+    // Do an N-way dispatch on the next byte.
     //
     // 0       'd','s'         OFFSET_D 0 0 ... OFFSET_S
     //                          ^-----------------^-----  NB these negated for exact
+    printf("%smin = %d, max = %d\n", indent, min, max);
+    assert(min <= max);
+    int min_length_match = INT_MAX;
+    for (int i = lo; i <= hi; i++) {
+        if (v[i].size < min_length_match) min_length_match = v[i].size;
+    }
+#if 1 //def BUILD_AMONG_TABLE_DEBUG
+    printf("%s=== min_length_match = %d\n", indent, min_length_match);
+#endif
+
     int entry_len = (max - min) + 1 + 2;
     if (CAPACITY(out) < SIZE(out) + entry_len) {
         out = increase_capacity_b(out, entry_len);
@@ -2138,50 +2154,48 @@ static int build_among_table_(struct generator * g, struct among * x,
     for (int i = 0; i < max - min + 1; ++i) {
         out[offset + 2 + i] = 0;
     }
-    int prev_ch = -1;
-    byte middle_used = false;
-    for (int i = 0; i < x->literalstring_count; i++) {
-        if (v[i].size < xfix_len) continue;
-        symbol * b = forwards ? v[i].b : v[i].b + v[i].size - xfix_len;
-        if (memcmp(b, *xfix_ptr, xfix_len * sizeof(symbol)) != 0)
-            continue;
-        if (v[i].size == xfix_len) {
-            continue;
+    bool middle_used = (hi - lo > 1);
+    int l = lo;
+    while (l <= hi) {
+        symbol ch = xfix_ch(v + l, xfix_len, forwards);
+        int h = l;
+        while (h < hi && ch == xfix_ch(v + h + 1, xfix_len, forwards)) {
+            ++h;
         }
-        symbol ch = v[i].b[forwards ? xfix_len : v[i].size - 1 - xfix_len];
-        if (ch == prev_ch)  continue;
-        prev_ch = ch;
-        if (forwards) {
-            *xfix_ptr = add_to_b(*xfix_ptr, &ch, 1);
-        } else {
-            *xfix_ptr = prefix_to_b(*xfix_ptr, &ch, 1);
-        }
-        out[offset + 2 + (ch - min)] = build_among_table_(g, x, xfix_ptr, out, forwards,
+        out[offset + 2 + (ch - min)] = build_among_table_(g, x,
+                                                          l, h,
+                                                          xfix_len + 1,
+                                                          out, forwards,
                                                           exact ? exact : longest_sub);
-        if (!forwards) {
-            memmove(*xfix_ptr, *xfix_ptr + SIZE(*xfix_ptr) - xfix_len, xfix_len * 2);
-        }
-        SET_SIZE(*xfix_ptr, xfix_len);
-        middle_used = middle_used || (ch > min && ch < max);
+        printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, out[offset + 2 + (ch - min)], ch, ch, min, min);
+        l = h + 1;
     }
-    //printf("MIDDLE %sUSED: gap %d [%d:%d]\n", (middle_used ? "" : "UN"), max - min - 1, min, max);
+
+    (void)middle_used;
+    //printf("%sMIDDLE %sUSED: gap %d [%d:%d]\n", indent, (middle_used ? "" : "UN"), max - min - 1, min, max);
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("%d:\t%d\t%c,%c", offset, exact, min, max);
+    printf("%s%d:\t%d\t%c,%c", indent, offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];
         if (qqq)
             printf("\t%c:%d", i, qqq);
     }
     printf("\t[");
+    symbol * b = v[lo].b;
+    if (!forwards) b += v[lo].size - xfix_len;
     for (int i = 0; i < xfix_len; ++i) {
-        putchar((*xfix_ptr)[i]);
+        putchar(b[i]);
     }
     printf("]\n");
 #endif
 
+    --depth;
+
     if (min > max) {
-        return -1;
+        printf("%sMIN > MAX!!!! %d %d\n", indent, min, max);
+        // return -1;
     }
+    printf("%sRETURN %d/%d (offset; end of func)\n", indent, offset, SIZE(out));
     return offset;
 }
 
@@ -2259,7 +2273,16 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     // Calculate an upper bound on the number of different function scenarios.
     int among_function_scenario_count_ub = 0;
+    bool forwards = (among_mode(x) == m_forward);
     for (int i = 0; i < x->literalstring_count; i++) {
+        printf("A#%d #%d: ", x->number, i);
+        if (!forwards) printf("...");
+        symbol * b = x->v[i].b;
+        for (int j = 0; j < x->v[i].size; ++j) {
+            putchar(b[j]);
+        }
+        if (forwards) printf("...");
+        printf("\n");
         if (x->v[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
@@ -2271,10 +2294,10 @@ static void build_among_table(struct generator * g, struct among * x) {
     }
 
     symbol * b = create_b(1024 * 1024); // FIXME need to pass so it can be resized safely
-    symbol * xfix = create_b(32); // prefix/suffix
-    int root = build_among_table_(g, x, &xfix, b, (among_mode(x) == m_forward), 0);
+    int root = build_among_table_(g, x,
+                                  0, x->literalstring_count - 1, 0,
+                                  b, (among_mode(x) == m_forward), 0);
     assert(root == 0);
-    lose_b(xfix);
 
     x->among_table = b;
 }
