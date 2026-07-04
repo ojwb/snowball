@@ -1924,10 +1924,10 @@ static int build_among_table_(struct generator * g, struct among * x,
                               int forwards, int longest_sub) {
     struct amongvec * v = x->v;
 
+#ifdef BUILD_AMONG_TABLE_DEBUG
     static int depth = 0;
     char * indent = "                " + (depth > 16 ? 0 : 16 - depth);
     ++depth;
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
     printf("%sA#%d: build_among_table_ lo=%d hi=%d xfix_len=%d %swards ",
            indent, x->number,
            lo, hi, xfix_len, forwards ? "for" : "back");
@@ -2003,8 +2003,10 @@ static int build_among_table_(struct generator * g, struct among * x,
 #endif
         }
         if (lo == hi) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
             printf("%sRETURN -%d (lo == hi == %d)\n", indent, exact, lo);
             --depth;
+#endif
             return -exact;
         }
         ++lo;
@@ -2031,9 +2033,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         // is one word shorter and slightly easier to decode than length-1
         // segment.
         int segment_len = xfix_len - old_xfix_len;
-        printf("%ssegment_len = %d\n", indent, segment_len);
-        if (segment_len > 1) { // FIXME use this eventually
-//        if (segment_len >= 1) { // 
+        if (segment_len > 1) {
             // Emit a segment to check for.
             // 0       2,-           RES_IES | 'i' 'e'
             // ^exact  ^length,0
@@ -2041,15 +2041,6 @@ static int build_among_table_(struct generator * g, struct among * x,
             int old_exact = exact;
             if (old_exact) longest_sub = old_exact;
             if (xfix_len == size_limit) {
-#if 0
-                if (exact) {
-                    printf("%sRETURN -%d (xfix_len == size_limit == %d)\n",
-                           indent, exact, xfix_len);
-                    --depth;
-                    return -exact;
-                }
-#endif
-#if 1
                 exact = v[lo].result;
                 if (exact < 0) { exact = 0x3fff; }
                 if (v[lo].function_index) {
@@ -2078,7 +2069,6 @@ static int build_among_table_(struct generator * g, struct among * x,
                            indent, x->number, exact);
 #endif
                 }
-#endif
             }
 
             int entry_len = ((segment_len + 1) >> 1) + 3;
@@ -2121,9 +2111,9 @@ static int build_among_table_(struct generator * g, struct among * x,
                 putchar(b[i]);
             }
             printf("]\n");
-#endif
             printf("%sRETURN %d (offset)\n", indent, offset);
             --depth;
+#endif
             return offset;
         }
         xfix_len = old_xfix_len;
@@ -2133,13 +2123,15 @@ static int build_among_table_(struct generator * g, struct among * x,
     //
     // 0       'd','s'         OFFSET_D 0 0 ... OFFSET_S
     //                          ^-----------------^-----  NB these negated for exact
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("%smin = %d, max = %d\n", indent, min, max);
+#endif
     assert(min <= max);
     int min_length_match = INT_MAX;
     for (int i = lo; i <= hi; i++) {
         if (v[i].size < min_length_match) min_length_match = v[i].size;
     }
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("%s=== min_length_match = %d\n", indent, min_length_match);
 #endif
 
@@ -2167,13 +2159,15 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                           xfix_len + 1,
                                                           out, forwards,
                                                           exact ? exact : longest_sub);
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, out[offset + 2 + (ch - min)], ch, ch, min, min);
+#endif
         l = h + 1;
     }
 
     (void)middle_used;
-    //printf("%sMIDDLE %sUSED: gap %d [%d:%d]\n", indent, (middle_used ? "" : "UN"), max - min - 1, min, max);
 #ifdef BUILD_AMONG_TABLE_DEBUG
+    printf("%sMIDDLE %sUSED: gap %d [%d:%d]\n", indent, (middle_used ? "" : "UN"), max - min - 1, min, max);
     printf("%s%d:\t%d\t%c,%c", indent, offset, exact, min, max);
     for (int i = min; i <= max; i++) {
         int qqq = out[offset + 2 + (i - min)];
@@ -2187,15 +2181,9 @@ static int build_among_table_(struct generator * g, struct among * x,
         putchar(b[i]);
     }
     printf("]\n");
-#endif
-
-    --depth;
-
-    if (min > max) {
-        printf("%sMIN > MAX!!!! %d %d\n", indent, min, max);
-        // return -1;
-    }
     printf("%sRETURN %d/%d (offset; end of func)\n", indent, offset, SIZE(out));
+    --depth;
+#endif
     return offset;
 }
 
@@ -2273,9 +2261,10 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     // Calculate an upper bound on the number of different function scenarios.
     int among_function_scenario_count_ub = 0;
-    bool forwards = (among_mode(x) == m_forward);
     for (int i = 0; i < x->literalstring_count; i++) {
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("A#%d #%d: ", x->number, i);
+        bool forwards = (among_mode(x) == m_forward);
         if (!forwards) printf("...");
         symbol * b = x->v[i].b;
         for (int j = 0; j < x->v[i].size; ++j) {
@@ -2283,6 +2272,7 @@ static void build_among_table(struct generator * g, struct among * x) {
         }
         if (forwards) printf("...");
         printf("\n");
+#endif
         if (x->v[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
