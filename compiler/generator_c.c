@@ -2199,7 +2199,7 @@ static void build_among_table(struct generator * g, struct among * x) {
     //      'us' 'ss'
     //  )
 
-    // Work in bytes for UTF-8:
+    // Work in code units (so bytes for UTF-8):
     //
     // offset_t min_m  seglen byte byte         offset_t...
     // <exact>  <byte> <byte> <min> <range>     <pointer>...
@@ -2221,21 +2221,18 @@ static void build_among_table(struct generator * g, struct among * x) {
     //
     // RES_* are -(x->result) in the current approach with values -1, -2, -3, ...
     // Except x->result can be 1, 2, ... or -1 (for empty action) so map -1 to
-    // a high positive value (before negation).  Caller doesn't care.
+    // 0x3fff (before negation).  The caller doesn't actually care what value
+    // is used for an empty action, just that it's not a value used for any
+    // matching substring.
     //
     // OFFSET_* are offsets into this table with values > 0
     //
-    // FN_* are some range of values which don't collide with these (set a high
-    // bit)?
+    // FN_* are used when there's a gating function to indicate the caller needs
+    // to resolve a particular "among function scenario".  FN_* need to be
+    // values which don't collide (so we set bit 0x4000).
     //
     // Current: 15 bytes for strings + 6 * (sizeof(void*) + sizeof(int) * 4)
     // ~= 40 * sizeof(int) on x86-64 linux
-    //
-    // But need function and substring_i in there too.  Now substring_i only
-    // needed when there's a function.
-    //
-    // Use e.g. FN_IES for that case then have the dispatch function return the
-    // RES_* or FN_* for the next longest suffix to try?
 
     // Combined segment and branch:
     //
@@ -2304,7 +2301,6 @@ static void generate_among_table(struct generator * g, struct among * x) {
                 w(g, ",~N~M");
             }
         }
-        //write_int(g, (int)b[i]);
         write_string(g, "0x");
         write_hex4(g, (int)b[i]);
     }
