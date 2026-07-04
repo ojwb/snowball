@@ -27,6 +27,7 @@ extern symbol * create_b(int n);
 extern void report_b(FILE * out, const symbol * p);
 extern void lose_b(symbol * p);
 extern symbol * increase_capacity_b(symbol * p, int n);
+extern symbol * ensure_capacity_b(symbol * p, int n);
 extern symbol * add_to_b(symbol * p, const symbol * q, int n);
 extern symbol * copy_b(const symbol * p);
 extern char * b_to_sz(const symbol * p);

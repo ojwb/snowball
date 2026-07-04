@@ -82,6 +82,12 @@ extern symbol * increase_capacity_b(symbol * p, int n) {
     lose_b(p); return q;
 }
 
+extern symbol * ensure_capacity_b(symbol * p, int n) {
+    int x = SIZE(p) + n - CAPACITY(p);
+    if (x > 0) p = increase_capacity_b(p, x);
+    return p;
+}
+
 extern symbol * add_to_b(symbol * p, const symbol * q, int n) {
     int x = SIZE(p) + n - CAPACITY(p);
     if (x > 0) p = increase_capacity_b(p, x);
