@@ -13,6 +13,8 @@
 /* Define this to get warning messages when optimisations can't be used. */
 /* #define OPTIMISATION_WARNINGS */
 
+#define AFS_FLAG 0x4000
+
 /* prototype functions for recursive use: */
 
 static void generate(struct generator * g, struct node * p);
@@ -1405,19 +1407,23 @@ static void generate_substring(struct generator * g, struct node * p) {
             int among_function_chains = false;
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
-                if ((scenario->t_result & 0xC000) == 0x4000 ||
-                    (scenario->f_result & 0xC000) == 0x4000) {
+                if ((scenario->t_result & AFS_FLAG) ||
+                    (scenario->f_result & AFS_FLAG)) {
                     among_function_chains = true;
                     break;
                 }
             }
             if (among_function_chains) {
-                w(g, "~Mwhile ((among_var & 0x4000)) {~N~+");
+                w(g, "~Mwhile ((among_var & 0x");
+                write_hex4(g, AFS_FLAG);
+                w(g, ")) {~N~+");
             } else {
-                w(g, "~Mif ((among_var & 0x4000)) {~N~+");
+                w(g, "~Mif ((among_var & 0x");
+                write_hex4(g, AFS_FLAG);
+                w(g, ")) {~N~+");
             }
             w(g, "~Mint c = z->c;~N");
-            assert(x->af_count <= 0x4000);
+            assert(x->af_count <= AFS_FLAG);
             // Use smallest all-1 mask that works.
             int mask = (x->af_count - 1);
             mask |= mask >> 1;
@@ -1843,7 +1849,7 @@ static int find_or_add_af(struct among * x,
 #ifdef BUILD_AMONG_TABLE_DEBUG
             printf(" -> existing entry %d\n", i);
 #endif
-            return i | 0x4000;
+            return i | AFS_FLAG;
         }
     }
     x->af[x->af_count].function = function;
@@ -1854,7 +1860,7 @@ static int find_or_add_af(struct among * x,
     printf(" -> new entry %d\n", x->af_count);
 #endif
     x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
-    return x->af_count++ | 0x4000;
+    return x->af_count++ | AFS_FLAG;
 }
 
 // FIXME: Need to encode function_index.
@@ -1970,7 +1976,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         // The current prefix/suffix is exactly present in this among.
         struct amongvec *v_exact = v + lo;
         exact = v_exact->result;
-        if (exact < 0) exact = 0x3fff;
+        if (exact < 0) exact = AFS_FLAG - 1;
         assert(exact != 0);
         if (v_exact->function_index) {
             int cursor_delta;
@@ -2041,7 +2047,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             if (old_exact) longest_sub = old_exact;
             if (xfix_len == size_limit) {
                 exact = v[lo].result;
-                if (exact < 0) { exact = 0x3fff; }
+                if (exact < 0) exact = AFS_FLAG - 1;
                 if (v[lo].function_index) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
                     printf("%s### %d/%d %d\n",
@@ -2135,7 +2141,7 @@ static int build_among_table_(struct generator * g, struct among * x,
     int entry_len = (max - min) + 1 + 2;
     *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
     ADD_TO_SIZE(*out, entry_len);
-    (*out)[offset] = exact; // & 0x3fff
+    (*out)[offset] = exact;
     if (exact) longest_sub = exact;
     (*out)[offset + 1] = min + (max << 8);
     for (int i = 0; i < max - min + 1; ++i) {
@@ -2221,15 +2227,15 @@ static void build_among_table(struct generator * g, struct among * x) {
     //
     // RES_* are -(x->result) in the current approach with values -1, -2, -3, ...
     // Except x->result can be 1, 2, ... or -1 (for empty action) so map -1 to
-    // 0x3fff (before negation).  The caller doesn't actually care what value
-    // is used for an empty action, just that it's not a value used for any
-    // matching substring.
+    // (AFS_FLAG - 1) (before negation).  The caller doesn't actually care what
+    // value is used for an empty action, just that it's not a value used for
+    // any matching substring.
     //
     // OFFSET_* are offsets into this table with values > 0
     //
     // FN_* are used when there's a gating function to indicate the caller needs
     // to resolve a particular "among function scenario".  FN_* need to be
-    // values which don't collide (so we set bit 0x4000).
+    // values which don't collide (so we set bit AFS_FLAG).
     //
     // Current: 15 bytes for strings + 6 * (sizeof(void*) + sizeof(int) * 4)
     // ~= 40 * sizeof(int) on x86-64 linux
