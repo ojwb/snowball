@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>    /* for printf */
 #include <stdlib.h>   /* malloc, free */
-#include <string.h>   /* memmove */
+#include <string.h>   /* memcpy */
 
 #include "header.h"
 
@@ -76,8 +76,11 @@ extern void lose_b(symbol * p) {
 }
 
 extern symbol * increase_capacity_b(symbol * p, int n) {
-    symbol * q = create_b(CAPACITY(p) + n + EXTENDER);
-    memmove(q, p, CAPACITY(p) * sizeof(symbol));
+    int new_size = CAPACITY(p) + n + EXTENDER;
+    // Switch to exponential growth for large strings.
+    if (new_size > 512) new_size *= 2;
+    symbol * q = create_b(new_size);
+    memcpy(q, p, SIZE(p) * sizeof(symbol));
     SET_SIZE(q, SIZE(p));
     lose_b(p); return q;
 }
@@ -91,7 +94,7 @@ extern symbol * ensure_capacity_b(symbol * p, int n) {
 extern symbol * add_to_b(symbol * p, const symbol * q, int n) {
     int x = SIZE(p) + n - CAPACITY(p);
     if (x > 0) p = increase_capacity_b(p, x);
-    memmove(p + SIZE(p), q, n * sizeof(symbol));
+    memcpy(p + SIZE(p), q, n * sizeof(symbol));
     ADD_TO_SIZE(p, n);
     return p;
 }
@@ -205,7 +208,7 @@ extern byte * increase_capacity_s(byte * p, int n) {
     // Switch to exponential growth for large strings.
     if (new_size > 512) new_size *= 2;
     byte * q = create_s(new_size);
-    memmove(q, p, CAPACITY(p));
+    memcpy(q, p, SIZE(p));
     SET_SIZE(q, SIZE(p));
     lose_s(p);
     return q;
