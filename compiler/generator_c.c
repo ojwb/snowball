@@ -2095,13 +2095,11 @@ static int build_among_table_(struct generator * g, struct among * x,
             // 0       2,-           RES_IES | 'i' 'e'
             // ^exact  ^length,0
             //                        ^--- NB this is negated for exact
-            int old_exact = exact;
-            if (old_exact) longest_sub = old_exact;
-            // FIXME: old_exact vs exact not right here?
+            if (exact) longest_sub = exact;
             int entry_len = ((segment_len + 1) >> 1) + 3;
             *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
             ADD_TO_SIZE(*out, entry_len);
-            (*out)[offset] = old_exact;
+            (*out)[offset] = exact;
             (*out)[offset + 1] = segment_len;
             if (min > max) {
                 // exact can only be zero here if there is nothing in the among
