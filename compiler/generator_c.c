@@ -2267,28 +2267,12 @@ static void build_among_table(struct generator * g, struct among * x) {
     //
     // Total                                                                   45 * sizeof(short)?
 
-
-    // Calculate an upper bound on the number of different function scenarios.
-    int among_function_scenario_count_ub = 0;
-    for (int i = 0; i < x->literalstring_count; i++) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-        printf("A#%d #%d: ", x->number, i);
-        bool forwards = (among_mode(x) == m_forward);
-        if (!forwards) printf("...");
-        symbol * b = x->v[i].b;
-        for (int j = 0; j < x->v[i].size; ++j) {
-            putchar(b[j]);
-        }
-        if (forwards) printf("...");
-        printf("\n");
-#endif
-        if (x->v[i].function) ++among_function_scenario_count_ub;
-    }
-    if (among_function_scenario_count_ub) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-        printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
-#endif
-        NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
+    if (x->function_count) {
+        // Each among case with a function creates an among function scenario,
+        // but some may be identical in which case they are merged.  This means
+        // x->function_count is an upper bound on the number of entries we
+        // need.
+        NEWVEC(among_function_scenario, af, x->function_count);
         x->af = af;
     }
 
