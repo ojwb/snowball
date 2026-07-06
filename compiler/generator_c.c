@@ -1912,7 +1912,7 @@ static int find_or_add_af(struct among * x,
                           int t_result,
                           int f_result,
                           int cursor_adjustment) {
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf("> find_or_add_af(%.*s, t:%d, f:%d, adj:%d) ",
            SIZE(function->s), function->s, t_result, f_result, cursor_adjustment);
 #endif
@@ -1921,7 +1921,7 @@ static int find_or_add_af(struct among * x,
             x->af[i].t_result == t_result &&
             x->af[i].f_result == f_result &&
             x->af[i].cursor_adjustment == cursor_adjustment) {
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
+#ifdef BUILD_AMONG_TABLE_DEBUG
             printf(" -> existing entry %d\n", i);
 #endif
             return i | AFS_FLAG;
@@ -1931,7 +1931,7 @@ static int find_or_add_af(struct among * x,
     x->af[x->af_count].t_result = t_result;
     x->af[x->af_count].f_result = f_result;
     x->af[x->af_count].cursor_adjustment = cursor_adjustment;
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
+#ifdef BUILD_AMONG_TABLE_DEBUG
     printf(" -> new entry %d\n", x->af_count);
 #endif
     x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
@@ -2050,9 +2050,6 @@ static int build_among_table_(struct generator * g, struct among * x,
                    indent, x->number,
                    v_exact->function_index, exact, longest_sub, cursor_delta);
 #endif
-            printf("AFS1: ");
-            report_b(stdout, v[lo].b);
-            printf(" ");
             exact = find_or_add_af(x,
                                    v_exact->function,
                                    exact,
@@ -2101,41 +2098,6 @@ static int build_among_table_(struct generator * g, struct among * x,
             int old_exact = exact;
             if (old_exact) longest_sub = old_exact;
             // FIXME: old_exact vs exact not right here?
-#if 0
-            if (xfix_len == size_limit) {
-                exact = g->options->coverage ? lo + 1 : v[lo].result;
-                if (exact < 0) exact = AFS_FLAG - 1;
-                if (v[lo].function_index) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                    printf("%s### %d/%d %d\n",
-                           indent, lo, x->literalstring_count, v[lo].i);
-#endif
-                    int cursor_delta;
-                    if (v[lo].i < 0) {
-                        cursor_delta = -1;
-                    } else {
-                        cursor_delta = v[v[lo].i].size;
-                    }
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                    printf("%sA#%d F2: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
-                           indent, x->number,
-                           v[lo].function_index, exact, longest_sub, cursor_delta);
-#endif
-            printf("AFS2: ");
-            report_b(stdout, v[lo].b);
-            printf(" ");
-                    exact = find_or_add_af(x,
-                                           v[lo].function,
-                                           exact,
-                                           longest_sub,
-                                           cursor_delta);
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                    printf("%sA#%d F2: -> exact now %d\n",
-                           indent, x->number, exact);
-#endif
-                }
-            }
-#endif
             int entry_len = ((segment_len + 1) >> 1) + 3;
             *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
             ADD_TO_SIZE(*out, entry_len);
@@ -2325,7 +2287,7 @@ static void build_among_table(struct generator * g, struct among * x) {
         if (x->v[i].function) ++among_function_scenario_count_ub;
     }
     if (among_function_scenario_count_ub) {
-#if 1 //def BUILD_AMONG_TABLE_DEBUG
+#ifdef BUILD_AMONG_TABLE_DEBUG
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
 #endif
         among_function_scenario_count_ub *= 2;
