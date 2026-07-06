@@ -2762,10 +2762,13 @@ static struct node * clone_node(struct analyser * a, struct node * n) {
 }
 
 // Inline any calls to routine `n` in the code starting at `p`.
-// Returns true if there are no remaining calls to `n` anywhere in the program.
+//
+// Returns true if any calls were inlined.  If there are no remaining calls to
+// `n` anywhere in the program then n->definition will be set to NULL.
 static bool inline_calls(struct analyser * a,
                          struct node * p,
                          struct name * n) {
+    bool r = false;
     while (p) {
         if (p->name == n && p->type == c_call) {
             p->type = c_bra;
@@ -2773,22 +2776,27 @@ static bool inline_calls(struct analyser * a,
             --n->references;
             if (n->references < 2) {
                 // No more uses of n, so there is no need to clone the code.
-                // We return true so if we're nested our parent knows to stop
-                // looking for calls to n, and to indicate the entry for n in
-                // analyser->names should be removed.
+                // We can also stop looking for uses of n to inline.
                 p->left = n->definition->left;
                 n->definition = NULL;
                 return true;
             }
             p->left = clone_node(a, n->definition->left);
             p = p->right;
+            r = true;
             continue;
         }
-        if (inline_calls(a, p->left, n)) return true;
-        if (inline_calls(a, p->aux, n)) return true;
+        if (inline_calls(a, p->left, n)) {
+            if (!n->definition) return true;
+            r = true;
+        }
+        if (inline_calls(a, p->aux, n)) {
+            if (!n->definition) return true;
+            r = true;
+        }
         p = p->right;
     }
-    return false;
+    return r;
 }
 
 extern void read_program(struct analyser * a, unsigned localise_mask) {
@@ -2897,20 +2905,16 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                     if (!r->definition) continue;
                     // Don't try to inline a routine into itself!
                     if (r == n) continue;
-                    int refs_before = n->references;
-                    bool all_inlined = inline_calls(a, r->definition->left, n);
-                    if (n->references != refs_before) {
-                        // The number of references to n has gone down which
-                        // means we must have inlined n's code into r, so we
-                        // need to update the among_with_function flag.
+                    if (inline_calls(a, r->definition->left, n)) {
+                        // If n contains an among with functions, r now does.
                         r->among_with_function |= n->among_with_function;
-                    }
-                    if (all_inlined) {
-                        // All calls to routine `n` have now been inlined
-                        // so remove it and move on to the next candidate
-                        // for inlining.
-                        remove = true;
-                        break;
+                        if (n->definition == NULL) {
+                            // All calls to routine `n` have now been inlined
+                            // so remove it and move on to the next candidate
+                            // for inlining.
+                            remove = true;
+                            break;
+                        }
                     }
                 }
                 if (remove) {
