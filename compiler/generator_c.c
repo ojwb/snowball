@@ -2288,7 +2288,6 @@ static void build_among_table(struct generator * g, struct among * x) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
 #endif
-        among_function_scenario_count_ub *= 2;
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }
