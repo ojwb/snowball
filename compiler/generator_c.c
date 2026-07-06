@@ -1259,6 +1259,34 @@ static void generate_define(struct generator * g, struct node * p) {
         }
     }
 
+    if (g->options->coverage) {
+        w(g, "~Mstatic int coverage_emitted = 0;~N");
+        w(g, "~Mif (!coverage_emitted) {~N~+");
+        w(g, "~Mcoverage_emitted = 1;~N");
+        for (struct among * x = g->analyser->amongs; x; x = x->next) {
+            if (!x->used) continue;
+            for (int i = 0; i < x->literalstring_count; i++) {
+                /* Report every case once, then unused cases will appear (and
+                 * we can decrement each count when generating the coverage
+                 * report).
+                 */
+                // FIXME:
+#if 0
+                w(g, "~Mfprintf(stderr, \"%s: among %d : %d of %d string '%.*s'\\n\", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);~N");
+                // Or: w(g, "~Mreport_among_coverage(...);~N");
+#endif
+            }
+            /* If the among matches the empty string without a gating function then
+             * the "no match" case is impossible and so not useful to include in a
+             * coverage report.
+             */
+#if 0            
+            fprintf(stderr, "%s: among %d no match\n", v[v_size * 2].s, among_number);
+#endif
+        }
+        w(g, "~-~M}~N");
+    }
+
     g->next_label = 0;
     g->var_number = 0;
 
@@ -1407,13 +1435,32 @@ static void generate_substring(struct generator * g, struct node * p) {
             // With -coverage enabled, we build the among table to return a
             // unique value for each among string, and generate a table to map
             // that to the among_var value.
+            g->S[0] = g->analyser->tokeniser->file;
+            g->I[1] = x->number;
             write_block_start(g);
-            w(g, "~Mstatic const int t[] = { ");
+            w(g, "~Mstatic const int t[] = { 0");
             for (int c = 0; c < x->literalstring_count; ++c) {
-                if (c) write_string(g, ", ");
+                write_string(g, ", ");
                 write_int(g, among_cases[c].result);
             }
-            w(g, "~M };~N");
+            w(g, " };~N");
+            w(g, "~Mswitch (among_var) {~N~+");
+            g->I[0] = x->node->line_number,
+            w(g, "~Mcase 0: fprintf(stderr, \"~S0:~I0: among ~I1 no match\\n\"); break;~N");
+            g->I[3] = x->literalstring_count;
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                const struct amongvec * e = x->v + c;
+                g->I[0] = e->line_number;
+                g->I[2] = e->string_index;
+                w(g, "~Mcase ");
+                write_int(g, c + 1);
+                w(g, ": fprintf(stderr, \"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                for (int k = 0; k != SIZE(e->b); ++k) {
+                    write_wchar_as_utf8(g, e->b[k]);
+                }
+                w(g, "'\\n\"); break;~N");
+            }
+            w(g, "~-~M}~N");
             w(g, "~Mamong_var = t[among_var - 1];~N");
             write_block_end(g);
         }
@@ -1722,6 +1769,9 @@ static void generate_head(struct generator * g) {
         w(g, "#include <limits.h>~N");
     }
     w(g, "#include <stddef.h>~N~N");
+    if (g->options->coverage) {
+        w(g, "#include <stdio.h>~N");
+    }
 
     if (o->target_lang == LANG_CPLUSPLUS) {
         w(g, "~Mtypedef ");
@@ -2183,7 +2233,6 @@ static int build_among_table_(struct generator * g, struct among * x,
 }
 
 static void build_among_table(struct generator * g, struct among * x) {
-    // FIXME: Handle o->coverage
 #ifdef BUILD_AMONG_TABLE_DEBUG
     printf("\nbuild_among_table for A#%d on line %d with %d strings\n", x->number, x->node->line_number, x->literalstring_count);
 #endif
@@ -2271,7 +2320,7 @@ static void build_among_table(struct generator * g, struct among * x) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
         printf("AMONG FUNCTIONS (ub = %d)\n", among_function_scenario_count_ub);
 #endif
-//        among_function_scenario_count_ub = x->literalstring_count; // FIXME
+        among_function_scenario_count_ub *= 2;
         NEWVEC(among_function_scenario, af, among_function_scenario_count_ub);
         x->af = af;
     }

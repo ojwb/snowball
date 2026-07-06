@@ -350,13 +350,6 @@ extern int eq_v_b(struct SN_env * z, const symbol * p) {
     return eq_s_b(z, SIZE(p), p);
 }
 
-#ifdef SNOWBALL_COVERAGE
-/* Declare more entries than any real Snowball program will have. */
-static char among_seen[4096];
-#endif
-
-/* FIXME: Need to implement among coverage for new among approach. */
-
 extern int find_among(struct SN_env * z, const unsigned short * v) {
     int c = z->c;
     int l = z->l;
