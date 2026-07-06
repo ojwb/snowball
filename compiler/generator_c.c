@@ -2035,8 +2035,8 @@ static int build_among_table_(struct generator * g, struct among * x,
         }
 
         // We only encode a segment of length two or more, since a 1-way switch
-        // is one word shorter and slightly easier to decode than length-1
-        // segment.
+        // is one word shorter and slightly easier to decode than segment of
+        // length 1.
         int segment_len = xfix_len - old_xfix_len;
         if (segment_len > 1) {
             // Emit a segment to check for.
@@ -2087,8 +2087,6 @@ static int build_among_table_(struct generator * g, struct among * x,
                 assert(exact);
                 (*out)[offset + 2] = -exact;
             } else {
-                // FIXME: We know there's not a segment next, so can we
-                // shortcut the recursion and just drop through to the code below?
                 (*out)[offset + 2] = build_among_table_(g, x, lo, hi, xfix_len,
                                                         out, forwards,
                                                         exact ? exact : longest_sub);
@@ -2137,6 +2135,15 @@ static int build_among_table_(struct generator * g, struct among * x,
 #ifdef BUILD_AMONG_TABLE_DEBUG
     printf("%s=== min_length_match = %d\n", indent, min_length_match);
 #endif
+    // FIXME: If we stored this in each entry we could sometimes shortcut
+    // knowing there's no way any prefixes/suffixes can match.
+    (void)min_length_match;
+
+    if (hi - lo == 1) {
+        // Only the extreme values of the range are used.
+        // FIXME: This case is common so encode compactly (with exchanged range
+        // ends?)
+    }
 
     int entry_len = (max - min) + 1 + 2;
     *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
@@ -2147,7 +2154,6 @@ static int build_among_table_(struct generator * g, struct among * x,
     for (int i = 0; i < max - min + 1; ++i) {
         (*out)[offset + 2 + i] = 0;
     }
-    bool middle_used = (hi - lo > 1);
     int l = lo;
     while (l <= hi) {
         symbol ch = xfix_ch(v + l, xfix_len, forwards);
@@ -2167,22 +2173,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         l = h + 1;
     }
 
-    (void)middle_used;
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("%sMIDDLE %sUSED: gap %d [%d:%d]\n", indent, (middle_used ? "" : "UN"), max - min - 1, min, max);
-    printf("%s%d:\t%d\t%c,%c", indent, offset, exact, min, max);
-    for (int i = min; i <= max; i++) {
-        int qqq = (*out)[offset + 2 + (i - min)];
-        if (qqq)
-            printf("\t%c:%d", i, qqq);
-    }
-    printf("\t[");
-    symbol * b = v[lo].b;
-    if (!forwards) b += v[lo].size - xfix_len;
-    for (int i = 0; i < xfix_len; ++i) {
-        putchar(b[i]);
-    }
-    printf("]\n");
     printf("%sRETURN %d/%d (offset; end of func)\n", indent, offset, SIZE((*out)));
     --depth;
 #endif
