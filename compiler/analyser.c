@@ -2900,6 +2900,9 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                     int refs_before = n->references;
                     bool all_inlined = inline_calls(a, r->definition->left, n);
                     if (n->references != refs_before) {
+                        // The number of references to n has gone down which
+                        // means we must have inlined n's code into r, so we
+                        // need to update the among_with_function flag.
                         r->among_with_function |= n->among_with_function;
                     }
                     if (all_inlined) {
