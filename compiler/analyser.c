@@ -40,7 +40,7 @@ static void free_among(struct among * q) {
     FREE(q->v);
     FREE(q->commands);
     FREE(q->af);
-    lose_b(q->among_table);
+    lose_b(q->table);
     FREE(q);
 }
 

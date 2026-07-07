@@ -1978,7 +1978,6 @@ static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
 // "xfix" is the suffix or prefix depending on the direction.
 static int build_among_table_(struct generator * g, struct among * x,
                               int lo, int hi, int xfix_len,
-                              symbol ** out,
                               int forwards, int longest_sub) {
     struct amongvec * v = x->v;
 
@@ -1998,7 +1997,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         }
         if (forwards) printf("...");
     }
-    printf(" longest_sub=%d, out[%d])\n", longest_sub, (int)SIZE(*out));
+    printf(" longest_sub=%d, out[%d])\n", longest_sub, (int)SIZE(x->table));
 #endif
 
     assert(lo <= hi);
@@ -2065,7 +2064,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         ++lo;
     }
 
-    int offset = SIZE(*out);
+    int offset = SIZE(x->table);
 
     symbol min = xfix_ch(v + lo, xfix_len, forwards);
     symbol max = xfix_ch(v + hi, xfix_len, forwards);
@@ -2093,22 +2092,22 @@ static int build_among_table_(struct generator * g, struct among * x,
             //                        ^--- NB this is negated for exact
             if (exact) longest_sub = exact;
             int entry_len = ((segment_len + 1) >> 1) + 3;
-            *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
-            ADD_TO_SIZE(*out, entry_len);
-            (*out)[offset] = exact;
-            (*out)[offset + 1] = segment_len;
+            x->table = ensure_capacity_b(x->table, entry_len);
+            ADD_TO_SIZE(x->table, entry_len);
+            x->table[offset] = exact;
+            x->table[offset + 1] = segment_len;
             if (min > max) {
                 // exact can only be zero here if there is nothing in the among
                 // with the specified prefix, which shouldn't happen.
                 assert(exact);
-                (*out)[offset + 2] = -exact;
+                x->table[offset + 2] = -exact;
             } else {
-                (*out)[offset + 2] = build_among_table_(g, x, lo, hi, xfix_len,
-                                                        out, forwards,
-                                                        exact ? exact : longest_sub);
+                x->table[offset + 2] = build_among_table_(g, x, lo, hi, xfix_len,
+                                                          forwards,
+                                                          exact ? exact : longest_sub);
             }
-            (*out)[offset + 3 + ((segment_len - 1) >> 1)] = 0;
-            char * to = (char*)&((*out)[offset+3]);
+            x->table[offset + 3 + ((segment_len - 1) >> 1)] = 0;
+            char * to = (char*)&(x->table[offset+3]);
             symbol * from = v[lo].b;
             if (forwards) from += old_xfix_len; else from += v[lo].size - old_xfix_len - segment_len;
             for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
@@ -2116,11 +2115,11 @@ static int build_among_table_(struct generator * g, struct among * x,
             printf("%s%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                    indent,
                    offset,
-                   (*out)[offset],
-                   (*out)[offset + 1],
-                   (*out)[offset + 2],
+                   x->table[offset],
+                   x->table[offset + 1],
+                   x->table[offset + 2],
                    segment_len,
-                   (char*)&(*out)[offset + 3]);
+                   (char*)&x->table[offset + 3]);
             printf("\t[");
             symbol * b = v[lo].b;
             if (!forwards) b += v[lo].size - old_xfix_len;
@@ -2164,28 +2163,28 @@ static int build_among_table_(struct generator * g, struct among * x,
         // the table size, which reduces the working set size and so is more
         // cache friendly.
         int entry_len = 4;
-        *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
-        ADD_TO_SIZE(*out, entry_len);
-        (*out)[offset] = exact;
-        (*out)[offset + 1] = max + (min << 8);
-        (*out)[offset + 2] = build_among_table_(g, x,
-                                                lo, lo,
-                                                xfix_len + 1,
-                                                out, forwards,
-                                                exact ? exact : longest_sub);
-        (*out)[offset + 3] = build_among_table_(g, x,
-                                                hi, hi,
-                                                xfix_len + 1,
-                                                out, forwards,
-                                                exact ? exact : longest_sub);
+        x->table = ensure_capacity_b(x->table, entry_len);
+        ADD_TO_SIZE(x->table, entry_len);
+        x->table[offset] = exact;
+        x->table[offset + 1] = max + (min << 8);
+        x->table[offset + 2] = build_among_table_(g, x,
+                                                  lo, lo,
+                                                  xfix_len + 1,
+                                                  forwards,
+                                                  exact ? exact : longest_sub);
+        x->table[offset + 3] = build_among_table_(g, x,
+                                                  hi, hi,
+                                                  xfix_len + 1,
+                                                  forwards,
+                                                  exact ? exact : longest_sub);
     } else {
         int entry_len = (max - min) + 1 + 2;
-        *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
-        ADD_TO_SIZE(*out, entry_len);
-        (*out)[offset] = exact;
-        (*out)[offset + 1] = min + (max << 8);
+        x->table = ensure_capacity_b(x->table, entry_len);
+        ADD_TO_SIZE(x->table, entry_len);
+        x->table[offset] = exact;
+        x->table[offset + 1] = min + (max << 8);
         for (int i = 0; i < max - min + 1; ++i) {
-            (*out)[offset + 2 + i] = 0;
+            x->table[offset + 2 + i] = 0;
         }
         int l = lo;
         while (l <= hi) {
@@ -2197,18 +2196,18 @@ static int build_among_table_(struct generator * g, struct among * x,
             int r = build_among_table_(g, x,
                                        l, h,
                                        xfix_len + 1,
-                                       out, forwards,
+                                       forwards,
                                        exact ? exact : longest_sub);
-            (*out)[offset + 2 + (ch - min)] = r;
+            x->table[offset + 2 + (ch - min)] = r;
 #ifdef BUILD_AMONG_TABLE_DEBUG
-            printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, (*out)[offset + 2 + (ch - min)], ch, ch, min, min);
+            printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, x->table[offset + 2 + (ch - min)], ch, ch, min, min);
 #endif
             l = h + 1;
         }
     }
 
 #ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("%sRETURN %d/%d (offset; end of func)\n", indent, offset, SIZE((*out)));
+    printf("%sRETURN %d/%d (offset; end of func)\n", indent, offset, SIZE(x->table));
     --depth;
 #endif
     return offset;
@@ -2291,19 +2290,18 @@ static void build_among_table(struct generator * g, struct among * x) {
     }
 
     // FIXME: Tune initial size a bit?
-    symbol * b = create_b(128);
+    x->table = create_b(128);
     int root = build_among_table_(g, x,
                                   0, x->literalstring_count - 1, 0,
-                                  &b, (among_mode(x) == m_forward), 0);
+                                  (among_mode(x) == m_forward), 0);
     assert(root == 0);
 
-    x->among_table = b;
 }
 
 static void generate_among_table(struct generator * g, struct among * x) {
     write_newline(g);
     write_comment(g, x->node);
-    symbol * b = x->among_table;
+    symbol * b = x->table;
     g->I[0] = x->number;
     w(g, "~Mstatic const unsigned short a_~I0[] = {~N~+");
     write_margin(g);
