@@ -1938,18 +1938,21 @@ static int find_or_add_af(struct among * x,
     return x->af_count++ | AFS_FLAG;
 }
 
+// FIXME: The encoding of segments introduces an endianness dependency -
+// we currently emit the table as an array of unsigned short, but the
+// shorts which encode segments assume little-endian-ness.
 
-// FIXME: we could track a threshold to include in the limit check at each
+// FIXME: We could track a threshold to include in the limit check at each
 // point and avoid checking when the string is too short for any remaining
 // options.  This would be added in the first limit check and mean we would
 // not need the additional limit check in the substring case (because this
 // thereshold would be >= the segment size).  See min_length_match below.
-//
-// FIXME: we can point to the same subsection to share resolutions that
+
+// FIXME: We can point to the same subsection to share resolutions that
 // are encoded exactly the same e.g. in forwards mode, both of these end up
 // allowing 'n' or 'ns':
 // among ( 'ion' 'ions' 'ian' 'ians' )
-//
+
 // FIXME: Approaching half the ranges we generate have only the first and
 // last entries present with entries between all being zero.  The worst
 // case is a gap of 150 between 'a' and 0xf8.  We could encode such cases by
