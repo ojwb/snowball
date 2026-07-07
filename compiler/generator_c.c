@@ -1953,17 +1953,10 @@ static int find_or_add_af(struct among * x,
 // allowing 'n' or 'ns':
 // among ( 'ion' 'ions' 'ian' 'ians' )
 
-// FIXME: Approaching half the ranges we generate have only the first and
-// last entries present with entries between all being zero.  The worst
-// case is a gap of 150 between 'a' and 0xf8.  We could encode such cases by
-// only storing the pointers for max and min and reduce the table size (which
-// reduces the working set size and so is more cache friendly) e.g. for a gap
-// of 150 we would save 300 bytes; in total we'd save 55104 bytes.
-//
-// Possibly we could extend to handle cases where there are more than two
-// entries but which are very sparse by binary chop?  E.g. 3 items needs
-// at most 2 compares (and 5/3 on average).  That would require storing
-// the byte for the non-extreme value somewhere though.
+// FIXME: Perhaps handle cases where there are more than two entries but which
+// are very sparse by binary chop?  E.g. 3 items needs at most 2 compares (and
+// 5/3 on average).  That would require storing the byte for the non-extreme
+// value somewhere though.
 //
 // Or support two ranges - when the range is sparse, it's usually due to
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
@@ -2162,38 +2155,56 @@ static int build_among_table_(struct generator * g, struct among * x,
     // knowing there's no way any prefixes/suffixes can match.
     (void)min_length_match;
 
-    if (hi - lo == 1) {
-        // Only the extreme values of the range are used.
-        // FIXME: This case is common so encode compactly (with exchanged range
-        // ends?)
-    }
-
-    int entry_len = (max - min) + 1 + 2;
-    *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
-    ADD_TO_SIZE(*out, entry_len);
-    (*out)[offset] = exact;
     if (exact) longest_sub = exact;
-    (*out)[offset + 1] = min + (max << 8);
-    for (int i = 0; i < max - min + 1; ++i) {
-        (*out)[offset + 2 + i] = 0;
-    }
-    int l = lo;
-    while (l <= hi) {
-        symbol ch = xfix_ch(v + l, xfix_len, forwards);
-        int h = l;
-        while (h < hi && ch == xfix_ch(v + h + 1, xfix_len, forwards)) {
-            ++h;
+    if (max > min && hi - lo == 1) {
+        // Only the two end values of the range are used.  This case is common
+        // (approaching half the ranges we generate) and the most extreme is a
+        // gap of 150 between 'a' and 0xf8.  We encode such cases by swapping
+        // the min and max values, and only storing two pointers.  This reduces
+        // the table size, which reduces the working set size and so is more
+        // cache friendly.
+        int entry_len = 4;
+        *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
+        ADD_TO_SIZE(*out, entry_len);
+        (*out)[offset] = exact;
+        (*out)[offset + 1] = max + (min << 8);
+        (*out)[offset + 2] = build_among_table_(g, x,
+                                                lo, lo,
+                                                xfix_len + 1,
+                                                out, forwards,
+                                                exact ? exact : longest_sub);
+        (*out)[offset + 3] = build_among_table_(g, x,
+                                                hi, hi,
+                                                xfix_len + 1,
+                                                out, forwards,
+                                                exact ? exact : longest_sub);
+    } else {
+        int entry_len = (max - min) + 1 + 2;
+        *out = ensure_capacity_b(*out, SIZE(*out) + entry_len);
+        ADD_TO_SIZE(*out, entry_len);
+        (*out)[offset] = exact;
+        (*out)[offset + 1] = min + (max << 8);
+        for (int i = 0; i < max - min + 1; ++i) {
+            (*out)[offset + 2 + i] = 0;
         }
-        int r = build_among_table_(g, x,
-                                   l, h,
-                                   xfix_len + 1,
-                                   out, forwards,
-                                   exact ? exact : longest_sub);
-        (*out)[offset + 2 + (ch - min)] = r;
+        int l = lo;
+        while (l <= hi) {
+            symbol ch = xfix_ch(v + l, xfix_len, forwards);
+            int h = l;
+            while (h < hi && ch == xfix_ch(v + h + 1, xfix_len, forwards)) {
+                ++h;
+            }
+            int r = build_among_table_(g, x,
+                                       l, h,
+                                       xfix_len + 1,
+                                       out, forwards,
+                                       exact ? exact : longest_sub);
+            (*out)[offset + 2 + (ch - min)] = r;
 #ifdef BUILD_AMONG_TABLE_DEBUG
-        printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, (*out)[offset + 2 + (ch - min)], ch, ch, min, min);
+            printf("%sstoring %d for char 0x%d (%c) - 0x%d (%c)\n", indent, (*out)[offset + 2 + (ch - min)], ch, ch, min, min);
 #endif
-        l = h + 1;
+            l = h + 1;
+        }
     }
 
 #ifdef BUILD_AMONG_TABLE_DEBUG

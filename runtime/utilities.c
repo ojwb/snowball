@@ -368,17 +368,7 @@ extern int find_among(struct SN_env * z, const unsigned short * v) {
             unsigned short x = v[o + 1];
             symbol a = x & 0xff;
             symbol b = x >> 8;
-            if (b) {
-                /* N-way dispatch. */
-                symbol ch = z->p[c];
-                if (ch >= a && ch <= b) {
-                    o = (short)v[o + (ch - a) + 2];
-                    if (o) {
-                        ++c;
-                        continue;
-                    }
-                }
-            } else {
+            if (b == 0) {
                 /* Substring segment. */
                 int old_c = c;
                 c += a;
@@ -386,6 +376,27 @@ extern int find_among(struct SN_env * z, const unsigned short * v) {
                     o = (short)v[o + 2];
                     assert(o);
                     continue;
+                }
+            } else {
+                symbol ch = z->p[c];
+                if (b < a) {
+                    /* 2-way dispatch. */
+                    if (ch == a || ch == b) {
+                        o = (short)v[o + (ch == a ? 3 : 2)];
+                        if (o) {
+                            ++c;
+                            continue;
+                        }
+                    }
+                } else {
+                    /* N-way dispatch. */
+                    if (ch >= a && ch <= b) {
+                        o = (short)v[o + (ch - a) + 2];
+                        if (o) {
+                            ++c;
+                            continue;
+                        }
+                    }
                 }
             }
         }
@@ -412,23 +423,34 @@ extern int find_among_b(struct SN_env * z, const unsigned short * v) {
             unsigned short x = v[o + 1];
             symbol a = x & 0xff;
             symbol b = x >> 8;
-            if (b) {
-                /* N-way dispatch. */
-                symbol ch = z->p[c - 1];
-                if (ch >= a && ch <= b) {
-                    o = (short)v[o + (ch - a) + 2];
-                    if (o) {
-                        --c;
-                        continue;
-                    }
-                }
-            } else {
+            if (b == 0) {
                 /* Substring segment. */
                 c -= a;
                 if (c >= lb && memcmp(z->p + c, &v[o + 3], a) == 0) {
                     o = (short)v[o + 2];
                     assert(o);
                     continue;
+                }
+            } else {
+                symbol ch = z->p[c - 1];
+                if (b < a) {
+                    /* 2-way dispatch. */
+                    if (ch == a || ch == b) {
+                        o = (short)v[o + (ch == a ? 3 : 2)];
+                        if (o) {
+                            --c;
+                            continue;
+                        }
+                    }
+                } else {
+                    /* N-way dispatch. */
+                    if (ch >= a && ch <= b) {
+                        o = (short)v[o + (ch - a) + 2];
+                        if (o) {
+                            --c;
+                            continue;
+                        }
+                    }
                 }
             }
         }
