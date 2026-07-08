@@ -23,6 +23,8 @@
 #  else
 #   define SNOWBALL_LITTLEENDIAN
 #  endif
+# elif defined _MSC_VER && (defined _M_AMD64 || defined _M_IX86) /* MSVC */
+#  define SNOWBALL_LITTLEENDIAN
 # elif defined HAVE_ENDIAN_H
 #  include <endian.h>
 #  if BYTE_ORDER == BIG_ENDIAN
