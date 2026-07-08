@@ -2104,7 +2104,9 @@ static int build_among_table_(struct generator * g, struct among * x,
             //                        ^--- NB this is negated for exact
             if (exact) longest_sub = exact;
             int entry_len = ((segment_len + 1) >> 1) + 3;
-            x->table = resize_b(x->table, SIZE(x->table) + entry_len);
+            int new_size = SIZE(x->table) + entry_len;
+            x->table = resize_b(x->table, new_size);
+            x->table_endianness = resize_s(x->table_endianness, new_size);
             x->table[offset] = exact;
             x->table[offset + 1] = segment_len;
             if (min > max) {
@@ -2126,10 +2128,8 @@ static int build_among_table_(struct generator * g, struct among * x,
             if (segment_len & 1) {
                 *to = from[segment_len - 1];
             }
-            int segment_words = (segment_len + 1) >> 1;
-            x->table_endianness = resize_s(x->table_endianness, offset + 3 + segment_words);
             // Flag this data as needing byteswapping on big-endian platforms.
-            memset(&x->table_endianness[offset + 3], 1, segment_words);
+            memset(&x->table_endianness[offset + 3], 1, (segment_len + 1) >> 1);
 #ifdef BUILD_AMONG_TABLE_DEBUG
             printf("%s%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                    indent,
