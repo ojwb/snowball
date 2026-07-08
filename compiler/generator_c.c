@@ -1962,6 +1962,11 @@ static int find_or_add_af(struct among * x,
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
 // accented versions).
 
+static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
+    assert(i < v->size);
+    return v->b[forwards ? i : v->size - 1 - i];
+}
+
 // The amongvec is sorted such that common suffix/prefix strings are
 // consecutive - more precisely:
 // * if `forwards`, by ASCII string order of the prefixes;
@@ -1969,12 +1974,7 @@ static int find_or_add_af(struct among * x,
 // We take advantage of this and pass in a range of entries (via start index
 // `lo` and end index `hi`) and just look at that range, shrinking it for
 // recursive calls.
-
-static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
-    assert(i < v->size);
-    return v->b[forwards ? i : v->size - 1 - i];
-}
-
+//
 // "xfix" is the suffix or prefix depending on the direction.
 static int build_among_table_(struct generator * g, struct among * x,
                               int lo, int hi, int xfix_len,
@@ -2013,10 +2013,6 @@ static int build_among_table_(struct generator * g, struct among * x,
         }
         assert(memcmp(b0, b, xfix_len * sizeof(symbol)) == 0);
     }
-
-    // FIXME:
-    // Emit file to feed into `dot` from graphviz to draw the tree which is
-    // created from the among.
 
     int exact = 0;
     if (v[lo].size == xfix_len) {
@@ -2285,13 +2281,12 @@ static void build_among_table(struct generator * g, struct among * x) {
         x->af = af;
     }
 
-    // FIXME: Tune initial size a bit?
-    x->table = create_b(128);
+    // 512 is large enough for ~90% of amongs.
+    x->table = create_b(512);
     int root = build_among_table_(g, x,
                                   0, x->literalstring_count - 1, 0,
                                   (among_mode(x) == m_forward), 0);
     assert(root == 0);
-
 }
 
 static void generate_among_table(struct generator * g, struct among * x) {
