@@ -2092,8 +2092,7 @@ static int build_among_table_(struct generator * g, struct among * x,
             //                        ^--- NB this is negated for exact
             if (exact) longest_sub = exact;
             int entry_len = ((segment_len + 1) >> 1) + 3;
-            x->table = ensure_capacity_b(x->table, entry_len);
-            ADD_TO_SIZE(x->table, entry_len);
+            x->table = resize_b(x->table, SIZE(x->table) + entry_len);
             x->table[offset] = exact;
             x->table[offset + 1] = segment_len;
             if (min > max) {
@@ -2106,7 +2105,6 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                           forwards,
                                                           exact ? exact : longest_sub);
             }
-            x->table[offset + 3 + ((segment_len - 1) >> 1)] = 0;
             char * to = (char*)&(x->table[offset+3]);
             symbol * from = v[lo].b;
             if (forwards) from += old_xfix_len; else from += v[lo].size - old_xfix_len - segment_len;
@@ -2163,8 +2161,7 @@ static int build_among_table_(struct generator * g, struct among * x,
         // the table size, which reduces the working set size and so is more
         // cache friendly.
         int entry_len = 4;
-        x->table = ensure_capacity_b(x->table, entry_len);
-        ADD_TO_SIZE(x->table, entry_len);
+        x->table = resize_b(x->table, SIZE(x->table) + entry_len);
         x->table[offset] = exact;
         x->table[offset + 1] = max + (min << 8);
         x->table[offset + 2] = build_among_table_(g, x,
@@ -2179,8 +2176,7 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                   exact ? exact : longest_sub);
     } else {
         int entry_len = (max - min) + 1 + 2;
-        x->table = ensure_capacity_b(x->table, entry_len);
-        ADD_TO_SIZE(x->table, entry_len);
+        x->table = resize_b(x->table, SIZE(x->table) + entry_len);
         x->table[offset] = exact;
         x->table[offset + 1] = min + (max << 8);
         for (int i = 0; i < max - min + 1; ++i) {
