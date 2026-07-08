@@ -2109,10 +2109,15 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                           forwards,
                                                           exact ? exact : longest_sub);
             }
-            char * to = (char*)&(x->table[offset+3]);
+            symbol * to = &(x->table[offset+3]);
             symbol * from = v[lo].b;
             if (forwards) from += old_xfix_len; else from += v[lo].size - old_xfix_len - segment_len;
-            for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
+            for (int i = 1; i < segment_len; i += 2) {
+                *to++ = from[i - 1] | (from[i] << 8);
+            }
+            if (segment_len & 1) {
+                *to = from[segment_len - 1];
+            }
             int segment_words = (segment_len + 1) >> 1;
             x->table_endianness = resize_s(x->table_endianness, offset + 3 + segment_words);
             // Flag this data as needing byteswapping on big-endian platforms.
