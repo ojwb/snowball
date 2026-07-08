@@ -1777,6 +1777,14 @@ static void generate_head(struct generator * g) {
         w(g, "~Mtypedef ");
         write_string(g, o->package);
         w(g, "::~n::SN_local SN_local;~N~N");
+
+        if (g->analyser->amongs) {
+            w(g, "~M#ifdef SNOWBALL_BIGENDIAN~N");
+            w(g, "~M#define S(W) ((0x##W & 0xff) << 8 | 0x##W >> 8)~N");
+            w(g, "~M#else~N");
+            w(g, "~M#define S(W) (0x##W)~N");
+            w(g, "~M#endif~N~N");
+        }
         return;
     }
 
