@@ -1831,6 +1831,14 @@ static void generate_head(struct generator * g) {
         }
     }
 
+    if (g->analyser->amongs) {
+        w(g, "~M#ifdef SNOWBALL_BIGENDIAN~N");
+        w(g, "~M#define S(W) ((0x##W & 0xff) << 8 | 0x##W >> 8)~N");
+        w(g, "~M#else~N");
+        w(g, "~M#define S(W) (0x##W)~N");
+        w(g, "~M#endif~N~N");
+    }
+
     const char * vp = g->options->variables_prefix;
     if (vp) {
         for (struct name * q = g->analyser->names; q; q = q->next) {
@@ -2105,6 +2113,10 @@ static int build_among_table_(struct generator * g, struct among * x,
             symbol * from = v[lo].b;
             if (forwards) from += old_xfix_len; else from += v[lo].size - old_xfix_len - segment_len;
             for (int i = 0; i < segment_len; ++i) to[i] = (char)from[i];
+            int segment_words = (segment_len + 1) >> 1;
+            x->table_endianness = resize_s(x->table_endianness, offset + 3 + segment_words);
+            // Flag this data as needing byteswapping on big-endian platforms.
+            memset(&x->table_endianness[offset + 3], 1, segment_words);
 #ifdef BUILD_AMONG_TABLE_DEBUG
             printf("%s%d:\t%d\t%d,-\t%d\t\"%.*s\"",
                    indent,
@@ -2283,6 +2295,7 @@ static void build_among_table(struct generator * g, struct among * x) {
 
     // 512 is large enough for ~90% of amongs.
     x->table = create_b(512);
+    x->table_endianness = create_s(512);
     int root = build_among_table_(g, x,
                                   0, x->literalstring_count - 1, 0,
                                   (among_mode(x) == m_forward), 0);
@@ -2293,6 +2306,7 @@ static void generate_among_table(struct generator * g, struct among * x) {
     write_newline(g);
     write_comment(g, x->node);
     symbol * b = x->table;
+    byte * e = x->table_endianness;
     g->I[0] = x->number;
     w(g, "~Mstatic const unsigned short a_~I0[] = {~N~+");
     write_margin(g);
@@ -2304,8 +2318,15 @@ static void generate_among_table(struct generator * g, struct among * x) {
                 w(g, ",~N~M");
             }
         }
-        write_string(g, "0x");
-        write_hex4(g, (int)b[i]);
+        if (i < SIZE(e) && e[i]) {
+            write_string(g, "S(");
+            write_hex4(g, (int)b[i]);
+            write_char(g, ')');
+        } else {
+            write_string(g, "0x");
+            write_hex4(g, (int)b[i]);
+            write_char(g, ' ');
+        }
     }
     write_newline(g);
     w(g, "~-~M};~N");

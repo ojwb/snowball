@@ -41,6 +41,7 @@ static void free_among(struct among * q) {
     FREE(q->commands);
     FREE(q->af);
     lose_b(q->table);
+    lose_s(q->table_endianness);
     FREE(q);
 }
 

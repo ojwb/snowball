@@ -16,6 +16,25 @@
 # define CAPACITY(p)    ((int *)(p))[-2]
 #endif
 
+#if !defined SNOWBALL_BIGENDIAN && !defined SNOWBALL_LITTLEENDIAN
+# ifdef __BYTE_ORDER__ /* GCC, clang */
+#  if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#   define SNOWBALL_BIGENDIAN
+#  else
+#   define SNOWBALL_LITTLEENDIAN
+#  endif
+# elif defined HAVE_ENDIAN_H
+#  include <endian.h>
+#  if BYTE_ORDER == BIG_ENDIAN
+#   define SNOWBALL_BIGENDIAN
+#  else
+#   define SNOWBALL_LITTLEENDIAN
+#  endif
+# else
+#  error Platform endianness unknown - define SNOWBALL_BIGENDIAN or SNOWBALL_LITTLEENDIAN
+# endif
+#endif
+
 #ifdef SNOWBALL_RUNTIME_THROW_EXCEPTIONS
 # define SNOWBALL_ERR void
 #else
