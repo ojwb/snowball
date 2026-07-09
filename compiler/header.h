@@ -247,7 +247,10 @@ struct name {
     bool value_used;            /* (For variables) is its value ever used? */
     bool initialised;           /* (For variables) is it ever initialised? */
     bool used_in_definition;    /* (grouping) used in grouping definition? */
-    bool among_with_function;   /* (routines/externals) contains among with func */
+    // (routines/externals) contains among
+    bool has_among;
+    // (routines/externals) contains among with function(s)
+    bool has_among_function;
     bool case_collision;        /* A name of the same type differs only by case */
     // (routines/externals) Could this directly or indirectly call itself?
     bool recursive;
@@ -277,9 +280,9 @@ struct amongvec {
     symbol * b;      /* the string giving the case */
     int size;        /* - and its size */
     struct node * action; /* the corresponding action */
-    /* the amongvec index of the longest substring of b, or -1 for none */
+    // The amongvec index of the longest substring of b, or -1 for none.
     int i;
-    /* among_var value for this case (starts from 1, or -1 for empty action) */
+    // among_var value for this case (starts from 1, or -1 for empty action).
     int result;
     int line_number; /* for diagnostics */
     int function_index; /* 1-based */

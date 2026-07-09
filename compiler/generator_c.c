@@ -1231,7 +1231,7 @@ static void generate_define(struct generator * g, struct node * p) {
 
     // The among implementation we use for C requires among_var for any
     // among with functions.
-    if (q->among_with_function || amongvar_needed(p->left))
+    if (q->has_among_function || amongvar_needed(p->left))
         w(g, "~Mint among_var;~N");
 
     /* Declare localised variables. */

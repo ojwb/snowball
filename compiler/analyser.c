@@ -1029,8 +1029,11 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
         return p;
     }
 
-    if (x->function_count) {
-        if (a->current_routine) a->current_routine->among_with_function = true;
+    if (a->current_routine) {
+        a->current_routine->has_among = true;
+        if (x->function_count) {
+            a->current_routine->has_among_function = true;
+        }
     }
 
     x->substring = substring;
@@ -2903,8 +2906,10 @@ extern void read_program(struct analyser * a, unsigned localise_mask) {
                     // Don't try to inline a routine into itself!
                     if (r == n) continue;
                     if (inline_calls(a, r->definition->left, n)) {
-                        // If n contains an among with functions, r now does.
-                        r->among_with_function |= n->among_with_function;
+                        // If n contains an among, r now does.  Similarly
+                        // for an among with functions.
+                        r->has_among |= n->has_among;
+                        r->has_among_function |= n->has_among_function;
                         if (n->definition == NULL) {
                             // All calls to routine `n` have now been inlined
                             // so remove it and move on to the next candidate
