@@ -1579,24 +1579,22 @@ static void generate_substring(struct generator * g, struct node * p) {
                         }
                     }
                     w(g, "'\\n\", stderr);~N");
-                    // FIXME coverage logging for among functions - main has:
-#if 0
-#ifdef SNOWBALL_COVERAGE
-            fprintf(stderr, "%s: among %d : %d of %d string '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
-#endif
-            if (!w->function) return w->result;
-            z->af = w->function;
-            if (call_among_func(z)) {
-#ifdef SNOWBALL_COVERAGE
-                fprintf(stderr, "%s: among %d : %d of %d func-t '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
-#endif
-                z->c = c - w->s_size;
-                return w->result;
-            }
-#ifdef SNOWBALL_COVERAGE
-            fprintf(stderr, "%s: among %d : %d of %d func-f '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
-#endif
-#endif
+                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-\", stderr);~N");
+                    w(g, "~Nputc(ret > 0 ? 't' : 'f', stderr);~N");
+                    w(g, "~Mfputs(\" '");
+                    for (int k = 0; k != SIZE(e->b); ++k) {
+                        symbol ch = e->b[k];
+                        if (32 <= ch && ch < 127) {
+                            if (ch == '\"' || ch == '\\') {
+                                write_char(g, '\\');
+                            }
+                            write_char(g, ch);
+                        } else {
+                            write_char(g, '\\');
+                            write_octal3(g, ch);
+                        }
+                    }
+                    w(g, "'\\n\", stderr);~N");
                 }
                 g->I[1] = t_result;
                 g->I[2] = cursor_adjustment;
@@ -2102,7 +2100,6 @@ static int build_among_table_(struct generator * g, struct among * x,
             int f_result = longest_sub;
             if (g->options->coverage) {
                 // With -coverage use the among_vec index as the AFS index.
-                // FIXME: Hook this up through the code...
                 exact = lo;
                 if (exact >= x->af_count) x->af_count = exact + 1;
                 x->af[exact].function = function;
