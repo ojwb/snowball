@@ -1487,7 +1487,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                 }
                 w(g, "'\\n\", stderr); break;~N");
             }
-            // FIXME: Report coverage for each AFS.
             w(g, "~-~M}~N");
             g->I[0] = AFS_FLAG;
             w(g, "~Mif (!(among_var & ~I0)) among_var = t[among_var];~N");
@@ -1995,10 +1994,6 @@ static void generate_routine_declarations(struct generator * g) {
         write_newline(g);
     }
 }
-
-// FIXME: The encoding of segments introduces an endianness dependency -
-// we currently emit the table as an array of unsigned short, but the
-// shorts which encode segments assume little-endian-ness.
 
 // FIXME: We could track a threshold to include in the limit check at each
 // point and avoid checking when the string is too short for any remaining
