@@ -1525,7 +1525,7 @@ static void generate_substring(struct generator * g, struct node * p) {
             }
             w(g, "~Mint c = z->c;~N");
             assert(x->af_count <= AFS_FLAG);
-            int mask = (x->af_count - 1);
+            int mask = x->af_count - 1;
             if (mask != 0) {
                 // Use smallest all-1 mask that works.
                 mask |= mask >> 1;
@@ -1538,15 +1538,17 @@ static void generate_substring(struct generator * g, struct node * p) {
             }
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
+                struct name * q = scenario->function;
+                if (q == NULL) {
+                    // With `-coverage` the AFS index is an among_vec index,
+                    // with unused entries indicated by ->function == NULL.
+                    assert(g->options->coverage);
+                    continue;
+                }
                 int cursor_adjustment = scenario->cursor_adjustment;
                 int t_result = scenario->t_result;
                 int f_result = scenario->f_result;
-                struct name * q = scenario->function;
                 g->I[0] = i;
-                g->I[1] = t_result;
-                g->I[2] = cursor_adjustment;
-                g->I[3] = f_result;
-                g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 if (mask != 0) {
                     w(g, "~Mcase ~I0: {~+~N");
                 } else {
@@ -1555,6 +1557,51 @@ static void generate_substring(struct generator * g, struct node * p) {
                 w(g, "~Mint ret = ");
                 write_varref(g, q);
                 w(g, "(z);~N");
+
+                if (g->options->coverage) {
+                    const struct amongvec * e = x->v + i;
+                    g->S[0] = g->analyser->tokeniser->file;
+                    g->I[0] = e->line_number;
+                    g->I[1] = x->number;
+                    g->I[2] = e->string_index;
+                    g->I[3] = x->literalstring_count;
+                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                    for (int k = 0; k != SIZE(e->b); ++k) {
+                        symbol ch = e->b[k];
+                        if (32 <= ch && ch < 127) {
+                            if (ch == '\"' || ch == '\\') {
+                                write_char(g, '\\');
+                            }
+                            write_char(g, ch);
+                        } else {
+                            write_char(g, '\\');
+                            write_octal3(g, ch);
+                        }
+                    }
+                    w(g, "'\\n\", stderr);~N");
+                    // FIXME coverage logging for among functions - main has:
+#if 0
+#ifdef SNOWBALL_COVERAGE
+            fprintf(stderr, "%s: among %d : %d of %d string '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
+#endif
+            if (!w->function) return w->result;
+            z->af = w->function;
+            if (call_among_func(z)) {
+#ifdef SNOWBALL_COVERAGE
+                fprintf(stderr, "%s: among %d : %d of %d func-t '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
+#endif
+                z->c = c - w->s_size;
+                return w->result;
+            }
+#ifdef SNOWBALL_COVERAGE
+            fprintf(stderr, "%s: among %d : %d of %d func-f '%.*s'\n", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);
+#endif
+#endif
+                }
+                g->I[1] = t_result;
+                g->I[2] = cursor_adjustment;
+                g->I[3] = f_result;
+                g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 // ret > 0: function signalled t.
                 w(g, "~Mif (ret > 0) { ");
                 if (K_needed(q->definition)) {
@@ -1951,38 +1998,6 @@ static void generate_routine_declarations(struct generator * g) {
     }
 }
 
-
-static int find_or_add_af(struct among * x,
-                          struct name * function,
-                          int t_result,
-                          int f_result,
-                          int cursor_adjustment) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-    printf("> find_or_add_af(%.*s, t:%d, f:%d, adj:%d) ",
-           SIZE(function->s), function->s, t_result, f_result, cursor_adjustment);
-#endif
-    for (int i = 0; i < x->af_count; ++i) {
-        if (x->af[i].function == function &&
-            x->af[i].t_result == t_result &&
-            x->af[i].f_result == f_result &&
-            x->af[i].cursor_adjustment == cursor_adjustment) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-            printf(" -> existing entry %d\n", i);
-#endif
-            return i | AFS_FLAG;
-        }
-    }
-    x->af[x->af_count].function = function;
-    x->af[x->af_count].t_result = t_result;
-    x->af[x->af_count].f_result = f_result;
-    x->af[x->af_count].cursor_adjustment = cursor_adjustment;
-#ifdef BUILD_AMONG_TABLE_DEBUG
-    printf(" -> new entry %d\n", x->af_count);
-#endif
-    x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
-    return x->af_count++ | AFS_FLAG;
-}
-
 // FIXME: The encoding of segments introduces an endianness dependency -
 // we currently emit the table as an array of unsigned short, but the
 // shorts which encode segments assume little-endian-ness.
@@ -2062,35 +2077,61 @@ static int build_among_table_(struct generator * g, struct among * x,
     int exact = 0;
     if (v[lo].size == xfix_len) {
         // The current prefix/suffix is exactly present in this among.
-        struct amongvec *v_exact = v + lo;
+        struct amongvec * v_exact = v + lo;
         exact = g->options->coverage ? lo + 1 : v_exact->result;
         if (exact < 0) exact = AFS_FLAG - 1;
         assert(exact != 0);
         if (v_exact->function_index) {
-            int cursor_delta;
+            int cursor_adjustment;
             if (v_exact->i < 0) {
-                cursor_delta = -1;
+                cursor_adjustment = -1;
             } else {
-                cursor_delta = v[v_exact->i].size;
+                cursor_adjustment = v[v_exact->i].size;
             }
             // If the among function signals t, the among result is t_result
             //   (i.e. variable `exact`)
             // If the among function signals f:
-            // * If cursor_delta == -1 the among result is 0 (no match)
+            // * If cursor_adjustment == -1 the among result is 0 (no match)
             // * Otherwise:
-            //   + cursor_delta is applied to the cursor value on entry (add for
-            //     forwards/subtract for backwards)
+            //   + cursor_adjustment is applied to the cursor value on entry
+            //     (add for forwards/subtract for backwards)
             //   + f_index is ?
-#ifdef BUILD_AMONG_TABLE_DEBUG
-            printf("%sA#%d F1: fn# %d  t_result: %d  f_index: %d  cursor_delta: %d\n",
-                   indent, x->number,
-                   v_exact->function_index, exact, longest_sub, cursor_delta);
-#endif
-            exact = find_or_add_af(x,
-                                   v_exact->function,
-                                   exact,
-                                   longest_sub,
-                                   cursor_delta);
+
+            struct name * function = v_exact->function;
+            int t_result = exact;
+            int f_result = longest_sub;
+            if (g->options->coverage) {
+                // With -coverage use the among_vec index as the AFS index.
+                // FIXME: Hook this up through the code...
+                exact = lo;
+                if (exact >= x->af_count) x->af_count = exact + 1;
+                x->af[exact].function = function;
+                x->af[exact].t_result = t_result;
+                x->af[exact].f_result = f_result;
+                x->af[exact].cursor_adjustment = cursor_adjustment;
+                x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
+            } else {
+                bool add = true;
+                for (int i = 0; i < x->af_count; ++i) {
+                    if (x->af[i].function == function &&
+                        x->af[i].t_result == t_result &&
+                        x->af[i].f_result == f_result &&
+                        x->af[i].cursor_adjustment == cursor_adjustment) {
+                        exact = i;
+                        add = false;
+                        break;
+                    }
+                }
+                if (add) {
+                    x->af[x->af_count].function = function;
+                    x->af[x->af_count].t_result = t_result;
+                    x->af[x->af_count].f_result = f_result;
+                    x->af[x->af_count].cursor_adjustment = cursor_adjustment;
+                    x->c0_used = x->c0_used || (f_result && cursor_adjustment > 0);
+                    exact = x->af_count++;
+                }
+            }
+            exact |= AFS_FLAG;
 #ifdef BUILD_AMONG_TABLE_DEBUG
             printf("%sA#%d F1: -> exact now %d\n", indent, x->number, exact);
 #endif
@@ -2331,7 +2372,16 @@ static void build_among_table(struct generator * g, struct among * x) {
         // but some may be identical in which case they are merged.  This means
         // x->function_count is an upper bound on the number of entries we
         // need.
-        NEWVEC(among_function_scenario, af, x->function_count);
+        //
+        // With -coverage we use the amongvec index as the af index.
+        bool coverage = g->options->coverage;
+        NEWVEC(among_function_scenario, af,
+               coverage ? x->literalstring_count : x->function_count);
+        if (coverage) {
+            for (int i = 0; i < x->literalstring_count; ++i) {
+                af[i] = (struct among_function_scenario){0};
+            }
+        }
         x->af = af;
     }
 
