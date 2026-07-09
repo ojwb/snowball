@@ -1525,13 +1525,13 @@ static void generate_substring(struct generator * g, struct node * p) {
             }
             w(g, "~Mint c = z->c;~N");
             assert(x->af_count <= AFS_FLAG);
-            // Use smallest all-1 mask that works.
             int mask = (x->af_count - 1);
-            mask |= mask >> 1;
-            mask |= mask >> 2;
-            mask |= mask >> 4;
-            mask |= mask >> 8;
             if (mask != 0) {
+                // Use smallest all-1 mask that works.
+                mask |= mask >> 1;
+                mask |= mask >> 2;
+                mask |= mask >> 4;
+                mask |= mask >> 8;
                 w(g, "~Mswitch (among_var & 0x");
                 write_hex(g, mask);
                 w(g, ") {~N~+");
