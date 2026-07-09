@@ -1288,7 +1288,16 @@ static void generate_define(struct generator * g, struct node * p) {
                 g->I[2] = e->string_index;
                 w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
                 for (int k = 0; k != SIZE(e->b); ++k) {
-                    write_wchar_as_utf8(g, e->b[k]);
+                    symbol ch = e->b[k];
+                    if (32 <= ch && ch < 127) {
+                        if (ch == '\"' || ch == '\\') {
+                            write_char(g, '\\');
+                        }
+                        write_char(g, ch);
+                    } else {
+                        write_char(g, '\\');
+                        write_octal3(g, ch);
+                    }
                 }
                 w(g, "'\\n\", stderr);~N");
             }
@@ -1465,12 +1474,23 @@ static void generate_substring(struct generator * g, struct node * p) {
                 write_int(g, c + 1);
                 w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
                 for (int k = 0; k != SIZE(e->b); ++k) {
-                    write_wchar_as_utf8(g, e->b[k]);
+                    symbol ch = e->b[k];
+                    if (32 <= ch && ch < 127) {
+                        if (ch == '\"' || ch == '\\') {
+                            write_char(g, '\\');
+                        }
+                        write_char(g, ch);
+                    } else {
+                        write_char(g, '\\');
+                        write_octal3(g, ch);
+                    }
                 }
                 w(g, "'\\n\", stderr); break;~N");
             }
+            // FIXME: Report coverage for each AFS.
             w(g, "~-~M}~N");
-            w(g, "~Mamong_var = t[among_var];~N");
+            g->I[0] = AFS_FLAG;
+            w(g, "~Mif (!(among_var & ~I0)) among_var = t[among_var];~N");
             write_block_end(g);
         }
         if (x->function_count) {
