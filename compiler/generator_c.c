@@ -1231,8 +1231,10 @@ static void generate_define(struct generator * g, struct node * p) {
 
     // The among implementation we use for C requires among_var for any
     // among with functions.
-    if (q->has_among_function || amongvar_needed(p->left))
+    if ((g->options->coverage ? q->has_among : q->has_among_function) ||
+        amongvar_needed(p->left)) {
         w(g, "~Mint among_var;~N");
+    }
 
     /* Declare localised variables. */
     for (struct name * name = g->analyser->names; name; name = name->next) {
@@ -1259,30 +1261,37 @@ static void generate_define(struct generator * g, struct node * p) {
         }
     }
 
-    if (g->options->coverage) {
+    if (g->options->coverage && q->type == t_external) {
         w(g, "~Mstatic int coverage_emitted = 0;~N");
         w(g, "~Mif (!coverage_emitted) {~N~+");
         w(g, "~Mcoverage_emitted = 1;~N");
         for (struct among * x = g->analyser->amongs; x; x = x->next) {
             if (!x->used) continue;
-            for (int i = 0; i < x->literalstring_count; i++) {
+            g->S[0] = g->analyser->tokeniser->file;
+            g->I[1] = x->number;
+            if (!x->always_matches) {
+                /* If the among matches the empty string without a gating
+                 * function then the "no match" case is impossible and so not
+                 * useful to include in a coverage report.
+                 */
+                g->I[0] = x->node->line_number,
+                w(g, "~Mfputs(\"~S0:~I0: among ~I1 no match\\n\", stderr);~N");
+            }
+            g->I[3] = x->literalstring_count;
+            for (int c = 0; c < x->literalstring_count; c++) {
                 /* Report every case once, then unused cases will appear (and
                  * we can decrement each count when generating the coverage
                  * report).
                  */
-                // FIXME:
-#if 0
-                w(g, "~Mfprintf(stderr, \"%s: among %d : %d of %d string '%.*s'\\n\", w[v_size].s, among_number, w[v_size].result, v_size, w->s_size, w->s);~N");
-                // Or: w(g, "~Mreport_among_coverage(...);~N");
-#endif
+                const struct amongvec * e = x->v + c;
+                g->I[0] = e->line_number;
+                g->I[2] = e->string_index;
+                w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                for (int k = 0; k != SIZE(e->b); ++k) {
+                    write_wchar_as_utf8(g, e->b[k]);
+                }
+                w(g, "'\\n\", stderr);~N");
             }
-            /* If the among matches the empty string without a gating function then
-             * the "no match" case is impossible and so not useful to include in a
-             * coverage report.
-             */
-#if 0            
-            fprintf(stderr, "%s: among %d no match\n", v[v_size * 2].s, among_number);
-#endif
         }
         w(g, "~-~M}~N");
     }
@@ -1425,7 +1434,7 @@ static void generate_substring(struct generator * g, struct node * p) {
 #endif
     }
 
-    if (x->amongvar_needed || x->function_count) {
+    if (g->options->coverage || x->amongvar_needed || x->function_count) {
         if (x->c0_used) {
             write_block_start(g);
             w(g, "~Mint c0 = z->c;~N");
@@ -1446,7 +1455,7 @@ static void generate_substring(struct generator * g, struct node * p) {
             w(g, " };~N");
             w(g, "~Mswitch (among_var) {~N~+");
             g->I[0] = x->node->line_number,
-            w(g, "~Mcase 0: fprintf(stderr, \"~S0:~I0: among ~I1 no match\\n\"); break;~N");
+            w(g, "~Mcase 0: fputs(\"~S0:~I0: among ~I1 no match\\n\", stderr); break;~N");
             g->I[3] = x->literalstring_count;
             for (int c = 0; c < x->literalstring_count; ++c) {
                 const struct amongvec * e = x->v + c;
@@ -1454,14 +1463,14 @@ static void generate_substring(struct generator * g, struct node * p) {
                 g->I[2] = e->string_index;
                 w(g, "~Mcase ");
                 write_int(g, c + 1);
-                w(g, ": fprintf(stderr, \"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
                 for (int k = 0; k != SIZE(e->b); ++k) {
                     write_wchar_as_utf8(g, e->b[k]);
                 }
-                w(g, "'\\n\"); break;~N");
+                w(g, "'\\n\", stderr); break;~N");
             }
             w(g, "~-~M}~N");
-            w(g, "~Mamong_var = t[among_var - 1];~N");
+            w(g, "~Mamong_var = t[among_var];~N");
             write_block_end(g);
         }
         if (x->function_count) {
