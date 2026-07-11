@@ -1654,9 +1654,14 @@ static void generate_substring(struct generator * g, struct node * p) {
                     w(g, "z->c = c; ");
                 }
                 w(g, "among_var = ~I1; break; }~N");
-                if (g->options->target_lang == LANG_C) {
-                    // FIXME: w(g, "~Mif (ret < 0) { handle slice_check failed in routine... }~N");
-                    // FIXME: But omit when this can't happen...
+                if (g->options->target_lang == LANG_C && can_error(q)) {
+                    // The original C among implementation swallowed an error
+                    // return from an among functions.  In practice, none of
+                    // the shipped algorithms use among functions which can
+                    // error, but with the new among approach we can statically
+                    // check if the among function can error and only emit code
+                    // to handle it if it can happen.
+                    w(g, "~Mif (ret < 0) return ret;~N");
                 }
                 if (f_result) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
