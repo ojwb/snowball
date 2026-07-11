@@ -1698,6 +1698,52 @@ static void generate_substring(struct generator * g, struct node * p) {
             w(g, "~-~M}~N");
             // Note: In general may have the same function called by more
             // than one case to handle different results.
+#if 0
+            if (g->options->coverage) {
+
+            // With -coverage enabled, we build the among table to return a
+            // unique value for each among string, and generate a table to map
+            // that to the among_var value.
+            g->S[0] = g->analyser->tokeniser->file;
+            g->I[1] = x->number;
+            write_block_start(g);
+            w(g, "~Mstatic const int t[] = { 0");
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                write_string(g, ", ");
+                write_int(g, among_cases[c].result);
+            }
+            w(g, " };~N");
+            w(g, "~Mswitch (among_var) {~N~+");
+            g->I[0] = x->node->line_number,
+            w(g, "~Mcase 0: fputs(\"~S0:~I0: among ~I1 no match\\n\", stderr); break;~N");
+            g->I[3] = x->literalstring_count;
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                const struct amongvec * e = x->v + c;
+                g->I[0] = e->line_number;
+                g->I[2] = e->string_index;
+                w(g, "~Mcase ");
+                write_int(g, c + 1);
+                w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                for (int k = 0; k != SIZE(e->b); ++k) {
+                    symbol ch = e->b[k];
+                    if (32 <= ch && ch < 127) {
+                        if (ch == '\"' || ch == '\\') {
+                            write_char(g, '\\');
+                        }
+                        write_char(g, ch);
+                    } else {
+                        write_char(g, '\\');
+                        write_octal3(g, ch);
+                    }
+                }
+                w(g, "'\\n\", stderr); break;~N");
+            }
+            w(g, "~-~M}~N");
+            w(g, "~Mamong_var = t[among_var];~N");
+            write_block_end(g);
+
+            }
+#endif
         }
         if (!x->always_matches) {
             writef(g, "~Mif (!among_var) ~f~N", p);
@@ -2067,6 +2113,8 @@ static void generate_routine_declarations(struct generator * g) {
 // Or support two ranges - when the range is sparse, it's usually due to
 // one big gap (e.g. for Latin alphabet languages ASCII a-z then a gap to the
 // accented versions).
+//
+// Or perfect hashing?
 
 static symbol xfix_ch(struct amongvec * v, int i, bool forwards) {
     assert(i < v->size);
