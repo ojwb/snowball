@@ -88,13 +88,13 @@ The output file consists of the stemmed words, one per line.
     if (input !== undefined) {
        istream = fs.createReadStream(input, encoding);
     } else {
-       istream = /**@type{fs.ReadStream}*/ (process.stdin);
+       istream = process.stdin;
        if (istream.setEncoding) istream.setEncoding(encoding);
     }
     if (output !== undefined) {
         ostream = fs.createWriteStream(output, encoding);
     } else {
-        ostream = /**@type{fs.WriteStream}*/ process.stdout;
+        ostream = process.stdout;
         if (ostream.setEncoding) ostream.setEncoding(encoding);
     }
 
@@ -108,8 +108,8 @@ The output file consists of the stemmed words, one per line.
 
 /**
  * @param {Stemmer} stemmer
- * @param {fs.ReadStream} input
- * @param {fs.WriteStream} output
+ * @param {Partial<fs.ReadStream>} input
+ * @param {Partial<fs.WriteStream>} output
  */
 function stemming (stemmer, input, output) {
     const lines = readline.createInterface({
