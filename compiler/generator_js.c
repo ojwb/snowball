@@ -1024,6 +1024,7 @@ static void generate_integer_test(struct generator * g, struct node * p) {
         w(g, "~Mreturn ");
         p->right = NULL;
     } else {
+        w(g, "~M/**@ts-ignore TS2367 if comparison is always false */~N");
         w(g, "~Mif (");
         // We want the inverse of the snowball test here.
         relop ^= 1;
