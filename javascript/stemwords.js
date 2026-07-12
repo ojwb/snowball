@@ -103,6 +103,7 @@ The output file consists of the stemmed words, one per line.
 
 /**
  * @typedef {object} Stemmer
+ * @property {function(string): string} stemWord
  */
 
 /**
@@ -130,7 +131,6 @@ async function create (name) {
         console.log('Unknown stemming language: ' + name + '\n');
         usage();
         process.exit(1);
-        return;
     }
     const filename = `../js_out/${lc_name}-stemmer.js`;
     try {
@@ -140,6 +140,5 @@ async function create (name) {
     } catch (error) {
         console.error(error);
         process.exit(1);
-        return;
     }
 }
