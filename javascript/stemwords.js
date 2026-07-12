@@ -101,7 +101,11 @@ The output file consists of the stemmed words, one per line.
     stemming(stemmer, istream, ostream);
 }
 
-// function stemming (stemmer : Stemmer, input : Stream, output : Stream) {
+/**
+ * @param {BaseStemmer} stemmer
+ * @param {Stream} input
+ * @param {Stream} output
+ */
 function stemming (stemmer, input, output) {
     const lines = readline.createInterface({
         input: input,
@@ -112,6 +116,10 @@ function stemming (stemmer, input, output) {
     });
 }
 
+/**
+ * @param {string} name
+ * @return {BaseStemmer} name
+ */
 async function create (name) {
     const lc_name = name.toLowerCase();
     if (/\W/.test(lc_name) || lc_name === 'base') {
