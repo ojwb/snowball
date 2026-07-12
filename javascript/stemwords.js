@@ -88,14 +88,14 @@ The output file consists of the stemmed words, one per line.
     if (input !== undefined) {
        istream = fs.createReadStream(input, encoding);
     } else {
+       if (process.stdin.setEncoding) process.stdin.setEncoding(encoding);
        istream = /**@type {fs.ReadStream}*/ /**@type {unknown}*/ (process.stdin);
-       if (istream.setEncoding) istream.setEncoding(encoding);
     }
     if (output !== undefined) {
         ostream = fs.createWriteStream(output, encoding);
     } else {
+        if (process.stdout.setEncoding) process.stdout.setEncoding(encoding);
         ostream = /**@type {fs.WriteStream}*/ /**@type {unknown}*/ (process.stdout);
-        if (ostream.setEncoding) ostream.setEncoding(encoding);
     }
 
     stemming(stemmer, istream, ostream);
