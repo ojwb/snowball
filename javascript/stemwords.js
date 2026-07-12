@@ -122,7 +122,7 @@ function stemming (stemmer, input, output) {
 
 /**
  * @param {string} name
- * @return {Stemmer} name
+ * @return {Promise<Stemmer>} name
  */
 async function create (name) {
     const lc_name = name.toLowerCase();
@@ -139,5 +139,7 @@ async function create (name) {
         return new stemmerModule.default();
     } catch (error) {
         console.error(error);
+        process.exit(1);
+        return;
     }
 }
