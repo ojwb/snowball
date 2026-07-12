@@ -45,7 +45,7 @@ The output file consists of the stemmed words, one per line.
                 usage_error = true;
                 break;
             }
-            language = argv.shift();
+            language = /**@type {string}*/ (argv.shift());
             break;
         case "-i":
             if (argv.length === 0)
@@ -69,7 +69,7 @@ The output file consists of the stemmed words, one per line.
                 usage_error = true;
                 break;
             }
-            encoding = argv.shift();
+            encoding = /**@type {BufferEncoding}*/ (argv.shift());
             break;
         default:
             console.log('Unknown command line option: ' + arg + '\n');
@@ -102,9 +102,9 @@ The output file consists of the stemmed words, one per line.
 }
 
 /**
- * @param {BaseStemmer} stemmer
- * @param {Stream} input
- * @param {Stream} output
+ * @param {Stemmer} stemmer
+ * @param {ReadStream} input
+ * @param {WriteStream} output
  */
 function stemming (stemmer, input, output) {
     const lines = readline.createInterface({
@@ -118,7 +118,7 @@ function stemming (stemmer, input, output) {
 
 /**
  * @param {string} name
- * @return {BaseStemmer} name
+ * @return {Stemmer} name
  */
 async function create (name) {
     const lc_name = name.toLowerCase();
