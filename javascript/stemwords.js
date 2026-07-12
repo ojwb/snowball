@@ -21,7 +21,7 @@ The output file consists of the stemmed words, one per line.
 {
     let input;
     let output;
-    let encoding = 'utf8';
+    let encoding = /**@type {BufferEncoding}*/ ('utf8');
     let language = 'English';
     let usage_error = false;
     // Skip the first two entries of argv which are the interpreter
@@ -103,8 +103,8 @@ The output file consists of the stemmed words, one per line.
 
 /**
  * @param {Stemmer} stemmer
- * @param {ReadStream} input
- * @param {WriteStream} output
+ * @param {fs.ReadStream} input
+ * @param {fs.WriteStream} output
  */
 function stemming (stemmer, input, output) {
     const lines = readline.createInterface({
