@@ -102,6 +102,10 @@ The output file consists of the stemmed words, one per line.
 }
 
 /**
+ * @typedef {object} Stemmer
+ */
+
+/**
  * @param {Stemmer} stemmer
  * @param {fs.ReadStream} input
  * @param {fs.WriteStream} output
