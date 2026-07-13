@@ -2339,7 +2339,25 @@ static int build_among_table_(struct generator * g, struct among * x,
     (void)min_length_match;
 
     if (exact) longest_sub = exact;
-    if (max > min && hi - lo == 1) {
+    int lo1 = lo;
+    int hi0 = hi;
+    if (max > min && hi - lo > 1) {
+        // There are more than two cases and the bounds are not adjacent,
+        // but there might only be two different next characters, which
+        // means this might still be a two-way switch on the next
+        // character.
+        while (hi - lo1 > 1) {
+            symbol ch = xfix_ch(v + lo1 + 1, xfix_len, forwards);
+            if (ch != min) break;
+            ++lo1;
+        }
+        while (hi0 - lo1 > 1) {
+            symbol ch = xfix_ch(v + hi0 - 1, xfix_len, forwards);
+            if (ch != max) break;
+            --hi0;
+        }
+    }
+    if (max > min && hi0 - lo1 == 1) {
         // Only the two end values of the range are used.  This case is common
         // (approaching half the ranges we generate) and the most extreme is a
         // gap of 150 between 'a' and 0xf8.  We encode such cases by swapping
@@ -2351,12 +2369,12 @@ static int build_among_table_(struct generator * g, struct among * x,
         x->table[offset] = exact;
         x->table[offset + 1] = max + (min << 8);
         x->table[offset + 2] = build_among_table_(g, x,
-                                                  lo, lo,
+                                                  lo, lo1,
                                                   xfix_len + 1,
                                                   forwards,
                                                   exact ? exact : longest_sub);
         x->table[offset + 3] = build_among_table_(g, x,
-                                                  hi, hi,
+                                                  hi0, hi,
                                                   xfix_len + 1,
                                                   forwards,
                                                   exact ? exact : longest_sub);
