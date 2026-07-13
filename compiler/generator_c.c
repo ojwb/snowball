@@ -1563,17 +1563,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                     break;
                 }
             }
-            if (among_function_chains) {
-                w(g, "~Mwhile ((among_var & 0x");
-                write_hex4(g, AFS_FLAG);
-                w(g, ")) {~N~+");
-            } else {
-                w(g, "~Mif ((among_var & 0x");
-                write_hex4(g, AFS_FLAG);
-                w(g, ")) {~N~+");
-            }
-            w(g, "~Mint c = z->c;~N");
-            assert(x->af_count <= AFS_FLAG);
             int mask = x->af_count - 1;
             if (mask != 0) {
                 // Use smallest all-1 mask that works.
@@ -1581,6 +1570,35 @@ static void generate_substring(struct generator * g, struct node * p) {
                 mask |= mask >> 2;
                 mask |= mask >> 4;
                 mask |= mask >> 8;
+            }
+            w(g, "~Mif ((among_var & 0x");
+            write_hex4(g, AFS_FLAG);
+            if (among_function_chains || mask == 0) {
+                // If among_function_chains, we wrap in:
+                //
+                //   do {
+                //     ...
+                //     break;
+                //   } while (1);
+                //
+                // and use `continue;` in the case where we need to follow a
+                // chain.
+                //
+                // If (mask == 0), there's only one among function scenario
+                // so we don't emit the `switch` and instead wrap in a dummy
+                // loop so that `break;` still works:
+                //
+                //   do {
+                //     ...
+                //   } while (0);
+                w(g, ")) do {~N~+");
+            } else {
+                w(g, ")) {~N~+");
+            }
+            w(g, "~Mint c = z->c;~N");
+            assert(x->af_count <= AFS_FLAG);
+            if (mask != 0) {
+                // Don't emit a switch if there's only one case.
                 w(g, "~Mswitch (among_var & 0x");
                 write_hex(g, mask);
                 w(g, ") {~N~+");
@@ -1600,8 +1618,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                 g->I[0] = i;
                 if (mask != 0) {
                     w(g, "~Mcase ~I0: {~+~N");
-                } else {
-                    w(g, "~Mdo {~+~N");
                 }
                 w(g, "~Mint ret = ");
                 write_varref(g, q);
@@ -1655,6 +1671,7 @@ static void generate_substring(struct generator * g, struct node * p) {
                     // Restore cursor if routine may have changed it.
                     w(g, "z->c = c; ");
                 }
+                assert((t_result & AFS_FLAG) == 0);
                 w(g, "among_var = ~I1; break; }~N");
                 if (g->options->target_lang == LANG_C && can_error(q)) {
                     // The original C among implementation swallowed an error
@@ -1687,17 +1704,29 @@ static void generate_substring(struct generator * g, struct node * p) {
 #endif
                 }
                 w(g, "~Mamong_var = ~I3;~N");
-                if (mask != 0) {
+                if ((f_result & AFS_FLAG)) {
+                    assert(among_function_chains);
+                    w(g, "~Mcontinue;~N");
+                } else if (mask != 0) {
                     w(g, "~Mbreak;~N");
+                }
+                if (mask != 0) {
                     w(g, "~-~M}~N");
-                } else {
-                    w(g, "~-~M} while (0);~N");
                 }
             }
             if (mask != 0) {
                 w(g, "~-~M}~N");
             }
-            w(g, "~-~M}~N");
+            if (among_function_chains) {
+                w(g, "~Mbreak;~N~-"
+                     "~M} while (1);~N");
+            } else if (mask == 0) {
+                w(g, "~-"
+                     "~M} while (0);~N");
+            } else {
+                w(g, "~-"
+                     "~M}~N");
+            }
             // Note: In general may have the same function called by more
             // than one case to handle different results.
 #if 0
