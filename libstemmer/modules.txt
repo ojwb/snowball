@@ -68,4 +68,4 @@ dutch_porter    UTF_8,ISO_8859_1        dutch_porter            dutch
 # lovins           - This is an english stemmer, but fairly outdated, and
 #                    only really applicable to a restricted type of input text
 #                    (keywords in academic publications).
-#lovins           UTF_8,ISO_8859_1        lovins                english
+lovins          UTF_8,ISO_8859_1        lovins                  english
