@@ -953,7 +953,7 @@ static void generate_dollar(struct generator * g, struct node * p) {
     struct str * savevar = vars_newname(g);
     g->B[0] = str_data(savevar);
     writef(g, "~{~N"
-              "~Mconst /** !Object */ ~B0 = new ~P();~N", p);
+              "~Mconst /**@type {~P}*/ ~B0 = new ~P();~N", p);
     writef(g, "~M~B0.copy_from(this);~N", p);
 
     writef(g, "~Mthis.current = ~V;~N"
@@ -1565,6 +1565,10 @@ extern void generate_program_js(struct generator * g) {
 
     if (g->analyser->debug_used) {
        w(g, "~N"
+            "~M/**~N"
+            "~M/* @param {number} n~N"
+            "~M/* @param {number} line~N"
+            "~M */~N"
             "~M#debug(n, line) {~N~+"
             "~Mconst len = this.current.length;~N"
             "~Mlet s = `${n<10?'  ':n<100?' ':''}${n} (line ${line<10?'   ':line<100?'  ':line<1000?' ':''}${line}): [${len}]'`;~N"
