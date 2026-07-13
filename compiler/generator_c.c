@@ -2379,6 +2379,38 @@ static int build_among_table_(struct generator * g, struct among * x,
                                                   forwards,
                                                   exact ? exact : longest_sub);
     } else {
+#if 0
+        // Report showing sparseness of n-ways:
+        // FIXME: We could perfect hash sparse n-ways for a more compact but
+        // still performant encoding (same O() performance).
+        if (max != min) {
+            int n = 0;
+            int l = lo;
+            while (l <= hi) {
+                ++n;
+                symbol ch = xfix_ch(v + l, xfix_len, forwards);
+                int h = l;
+                while (h < hi && ch == xfix_ch(v + h + 1, xfix_len, forwards)) {
+                    ++h;
+                }
+                l = h + 1;
+            }
+            printf("+++ NWAY window %d:%d %d of %d %.1f%%:",
+                   min, max, n, max - min + 1, 100 * n / (double)(max - min + 1));
+            l = lo;
+            while (l <= hi) {
+                ++n;
+                symbol ch = xfix_ch(v + l, xfix_len, forwards);
+                printf(" 0x%x", ch);
+                int h = l;
+                while (h < hi && ch == xfix_ch(v + h + 1, xfix_len, forwards)) {
+                    ++h;
+                }
+                l = h + 1;
+            }
+            printf("\n");
+        }
+#endif
         int entry_len = (max - min) + 1 + 2;
         x->table = resize_b(x->table, SIZE(x->table) + entry_len);
         x->table[offset] = exact;
