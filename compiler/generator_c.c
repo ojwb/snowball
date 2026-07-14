@@ -1499,61 +1499,25 @@ static void generate_substring(struct generator * g, struct node * p) {
             w(g, "~Mint c0 = z->c;~N");
         }
         writef(g, "~Mamong_var = find_among~S0(z, a_~I0);~N", p);
-        if (g->options->coverage) {
-            // With -coverage enabled, we build the among table to return a
-            // unique value for each among string, and generate a table to map
-            // that to the among_var value.
-            g->S[0] = g->analyser->tokeniser->file;
-            g->I[1] = x->number;
-            write_block_start(g);
-            w(g, "~Mstatic const int t[] = { 0");
-            for (int c = 0; c < x->literalstring_count; ++c) {
-                write_string(g, ", ");
-                write_int(g, among_cases[c].result);
-            }
-            w(g, " };~N");
-            w(g, "~Mswitch (among_var) {~N~+");
-            g->I[0] = x->node->line_number,
-            w(g, "~Mcase 0: fputs(\"~S0:~I0: among ~I1 no match\\n\", stderr); break;~N");
-            g->I[3] = x->literalstring_count;
-            for (int c = 0; c < x->literalstring_count; ++c) {
-                const struct amongvec * e = x->v + c;
-                g->I[0] = e->line_number;
-                g->I[2] = e->string_index;
-                w(g, "~Mcase ");
-                write_int(g, c + 1);
-                w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
-                for (int k = 0; k != SIZE(e->b); ++k) {
-                    symbol ch = e->b[k];
-                    if (32 <= ch && ch < 127) {
-                        if (ch == '\"' || ch == '\\') {
-                            write_char(g, '\\');
-                        }
-                        write_char(g, ch);
-                    } else {
-                        write_char(g, '\\');
-                        write_octal3(g, ch);
-                    }
-                }
-                w(g, "'\\n\", stderr); break;~N");
-            }
-            w(g, "~-~M}~N");
-            g->I[0] = AFS_FLAG;
-            w(g, "~Mif (!(among_var & ~I0)) among_var = t[among_var];~N");
-            write_block_end(g);
-        }
         if (x->function_count) {
-            // We implement among functions by generating code which calls the
-            // function and adjusts among_var and the cursor if it fails.
-            // If there is a chain of among functions (e.g. lovins.sbl has two
-            // such chains of length 5) then we loop along the chain if an
-            // among function fails.
+            // The find_among()/find_among_b() helper function doesn't handle
+            // among functions, but returns an among function scenario (AFS)
+            // code.
+            //
+            // For an among with functions, we generate C code which handles an
+            // AFS code by calling the appropriate among function.  If it
+            // signals t then among_var is set appropriately and we continue
+            // as normal.  If it fails it adjusts among_var and the cursor,
+            // then if there is a chain of among functions (e.g. lovins.sbl has
+            // two such chains of length 5) then it loops to follow along the
+            // chain, checking further among functions until one succeeds or
+            // we reach the end of the chain.
             //
             // This approach minimises calling of among functions, which is
-            // good since an among function can be arbitrarily expensive (it
+            // good since an among function can be arbitrarily expensive (we
             // will call the same among functions as the original among
-            // implementation).  It also avoids needing a dispatch function or
-            // dynamic load-time relocations.
+            // implementation did).  It also avoids needing a dispatch function
+            // or dynamic load-time relocations.
             int among_function_chains = false;
             for (int i = 0; i < x->af_count; ++i) {
                 struct among_function_scenario * scenario = &x->af[i];
@@ -1775,6 +1739,49 @@ static void generate_substring(struct generator * g, struct node * p) {
 
             }
 #endif
+        }
+        if (g->options->coverage) {
+            // With -coverage enabled, we build the among table to return a
+            // unique value for each among string, and generate a table to map
+            // that to the among_var value.
+            g->S[0] = g->analyser->tokeniser->file;
+            g->I[1] = x->number;
+            write_block_start(g);
+            w(g, "~Mstatic const int t[] = { 0");
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                write_string(g, ", ");
+                write_int(g, among_cases[c].result);
+            }
+            w(g, " };~N");
+            w(g, "~Mswitch (among_var) {~N~+");
+            g->I[0] = x->node->line_number,
+            w(g, "~Mcase 0: fputs(\"~S0:~I0: among ~I1 no match\\n\", stderr); break;~N");
+            g->I[3] = x->literalstring_count;
+            for (int c = 0; c < x->literalstring_count; ++c) {
+                const struct amongvec * e = x->v + c;
+                g->I[0] = e->line_number;
+                g->I[2] = e->string_index;
+                w(g, "~Mcase ");
+                write_int(g, c + 1);
+                w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
+                for (int k = 0; k != SIZE(e->b); ++k) {
+                    symbol ch = e->b[k];
+                    if (32 <= ch && ch < 127) {
+                        if (ch == '\"' || ch == '\\') {
+                            write_char(g, '\\');
+                        }
+                        write_char(g, ch);
+                    } else {
+                        write_char(g, '\\');
+                        write_octal3(g, ch);
+                    }
+                }
+                w(g, "'\\n\", stderr); break;~N");
+            }
+            w(g, "~-~M}~N");
+            g->I[0] = AFS_FLAG;
+            w(g, "~Mif (!(among_var & ~I0)) among_var = t[among_var];~N");
+            write_block_end(g);
         }
         if (!x->always_matches) {
             writef(g, "~Mif (!among_var) ~f~N", p);
