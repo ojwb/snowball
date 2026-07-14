@@ -1350,6 +1350,36 @@ static void generate_define(struct generator * g, struct node * p) {
                     }
                 }
                 w(g, "'\\n\", stderr);~N");
+                if (e->function) {
+                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-f '");
+                    for (int k = 0; k != SIZE(e->b); ++k) {
+                        symbol ch = e->b[k];
+                        if (32 <= ch && ch < 127) {
+                            if (ch == '\"' || ch == '\\') {
+                                write_char(g, '\\');
+                            }
+                            write_char(g, ch);
+                        } else {
+                            write_char(g, '\\');
+                            write_octal3(g, ch);
+                        }
+                    }
+                    w(g, "'\\n\", stderr);~N");
+                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-t '");
+                    for (int k = 0; k != SIZE(e->b); ++k) {
+                        symbol ch = e->b[k];
+                        if (32 <= ch && ch < 127) {
+                            if (ch == '\"' || ch == '\\') {
+                                write_char(g, '\\');
+                            }
+                            write_char(g, ch);
+                        } else {
+                            write_char(g, '\\');
+                            write_octal3(g, ch);
+                        }
+                    }
+                    w(g, "'\\n\", stderr);~N");
+                }
             }
         }
         w(g, "~-~M}~N");
