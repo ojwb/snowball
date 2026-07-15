@@ -1365,20 +1365,6 @@ static void generate_define(struct generator * g, struct node * p) {
                         }
                     }
                     w(g, "'\\n\", stderr);~N");
-                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-t '");
-                    for (int k = 0; k != SIZE(e->b); ++k) {
-                        symbol ch = e->b[k];
-                        if (32 <= ch && ch < 127) {
-                            if (ch == '\"' || ch == '\\') {
-                                write_char(g, '\\');
-                            }
-                            write_char(g, ch);
-                        } else {
-                            write_char(g, '\\');
-                            write_octal3(g, ch);
-                        }
-                    }
-                    w(g, "'\\n\", stderr);~N");
                 }
             }
         }
@@ -1617,48 +1603,6 @@ static void generate_substring(struct generator * g, struct node * p) {
                 write_varref(g, q);
                 w(g, "(z);~N");
 
-                if (g->options->coverage) {
-                    const struct amongvec * e = x->v + i;
-                    g->S[0] = g->analyser->tokeniser->file;
-                    g->I[0] = e->line_number;
-                    g->I[1] = x->number;
-                    g->I[2] = e->string_index;
-                    g->I[3] = x->literalstring_count;
-                    w(g, "~Mif (ret == 0) fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
-                    for (int k = 0; k != SIZE(e->b); ++k) {
-                        symbol ch = e->b[k];
-                        if (32 <= ch && ch < 127) {
-                            if (ch == '\"' || ch == '\\') {
-                                write_char(g, '\\');
-                            }
-                            write_char(g, ch);
-                        } else {
-                            write_char(g, '\\');
-                            write_octal3(g, ch);
-                        }
-                    }
-                    w(g, "'\\n\", stderr);~N");
-                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-\", stderr);~N");
-                    w(g, "~Nputc(ret > 0 ? 't' : 'f', stderr);~N");
-                    w(g, "~Mfputs(\" '");
-                    for (int k = 0; k != SIZE(e->b); ++k) {
-                        symbol ch = e->b[k];
-                        if (32 <= ch && ch < 127) {
-                            if (ch == '\"' || ch == '\\') {
-                                write_char(g, '\\');
-                            }
-                            write_char(g, ch);
-                        } else {
-                            write_char(g, '\\');
-                            write_octal3(g, ch);
-                        }
-                    }
-                    w(g, "'\\n\", stderr);~N");
-                }
-                g->I[1] = t_result;
-                g->I[2] = cursor_adjustment;
-                g->I[3] = f_result;
-                g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 // ret > 0: function signalled t.
                 w(g, "~Mif (ret > 0) { ");
                 if (K_needed(q->definition)) {
@@ -1666,7 +1610,8 @@ static void generate_substring(struct generator * g, struct node * p) {
                     w(g, "z->c = c; ");
                 }
                 assert((t_result & AFS_FLAG) == 0);
-                w(g, "among_var = ~I1; break; }~N");
+                g->I[0] = t_result;
+                w(g, "among_var = ~I0; break; }~N");
                 if (g->options->target_lang == LANG_C && can_error(q)) {
                     // The original C among implementation swallowed an error
                     // return from an among functions.  In practice, none of
@@ -1676,6 +1621,31 @@ static void generate_substring(struct generator * g, struct node * p) {
                     // to handle it if it can happen.
                     w(g, "~Mif (ret < 0) return ret;~N");
                 }
+                if (g->options->coverage) {
+                    const struct amongvec * e = x->v + i;
+                    g->S[0] = g->analyser->tokeniser->file;
+                    g->I[0] = e->line_number;
+                    g->I[1] = x->number;
+                    g->I[2] = e->string_index;
+                    g->I[3] = x->literalstring_count;
+                    w(g, "~Mfputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 func-f '");
+                    for (int k = 0; k != SIZE(e->b); ++k) {
+                        symbol ch = e->b[k];
+                        if (32 <= ch && ch < 127) {
+                            if (ch == '\"' || ch == '\\') {
+                                write_char(g, '\\');
+                            }
+                            write_char(g, ch);
+                        } else {
+                            write_char(g, '\\');
+                            write_octal3(g, ch);
+                        }
+                    }
+                    w(g, "'\\n\", stderr);~N");
+                }
+                g->I[2] = cursor_adjustment;
+                g->I[3] = f_result;
+                g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 if (f_result) {
 #ifdef BUILD_AMONG_TABLE_DEBUG
                     if (cursor_adjustment < 0) {
@@ -1723,52 +1693,6 @@ static void generate_substring(struct generator * g, struct node * p) {
             }
             // Note: In general may have the same function called by more
             // than one case to handle different results.
-#if 0
-            if (g->options->coverage) {
-
-            // With -coverage enabled, we build the among table to return a
-            // unique value for each among string, and generate a table to map
-            // that to the among_var value.
-            g->S[0] = g->analyser->tokeniser->file;
-            g->I[1] = x->number;
-            write_block_start(g);
-            w(g, "~Mstatic const int t[] = { 0");
-            for (int c = 0; c < x->literalstring_count; ++c) {
-                write_string(g, ", ");
-                write_int(g, among_cases[c].result);
-            }
-            w(g, " };~N");
-            w(g, "~Mswitch (among_var) {~N~+");
-            g->I[0] = x->node->line_number,
-            w(g, "~Mcase 0: fputs(\"~S0:~I0: among ~I1 no match\\n\", stderr); break;~N");
-            g->I[3] = x->literalstring_count;
-            for (int c = 0; c < x->literalstring_count; ++c) {
-                const struct amongvec * e = x->v + c;
-                g->I[0] = e->line_number;
-                g->I[2] = e->string_index;
-                w(g, "~Mcase ");
-                write_int(g, c + 1);
-                w(g, ": fputs(\"~S0:~I0: among ~I1 : ~I2 of ~I3 string '");
-                for (int k = 0; k != SIZE(e->b); ++k) {
-                    symbol ch = e->b[k];
-                    if (32 <= ch && ch < 127) {
-                        if (ch == '\"' || ch == '\\') {
-                            write_char(g, '\\');
-                        }
-                        write_char(g, ch);
-                    } else {
-                        write_char(g, '\\');
-                        write_octal3(g, ch);
-                    }
-                }
-                w(g, "'\\n\", stderr); break;~N");
-            }
-            w(g, "~-~M}~N");
-            w(g, "~Mamong_var = t[among_var];~N");
-            write_block_end(g);
-
-            }
-#endif
         }
         if (g->options->coverage) {
             // With -coverage enabled, we build the among table to return a
