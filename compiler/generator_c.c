@@ -1647,25 +1647,14 @@ static void generate_substring(struct generator * g, struct node * p) {
                 g->I[3] = f_result;
                 g->S[0] = (among_mode(x) == m_forward) ? "+" : "-";
                 if (f_result) {
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                    if (cursor_adjustment < 0) {
-                        printf("*** cursor_adjustment = %d < 0 for f_result = %d\n", cursor_adjustment, f_result);
-                    }
-#endif
+                    assert(cursor_adjustment >= 0);
                     if (cursor_adjustment > 0) {
                         w(g, "~Mz->c = c0 ~S0 ~I2;~N");
                     }
                 } else {
                     // among_var == 0 means the among signals f and the cursor
                     // will get restored when that signal is handled.
-                    // FIXME: But shouldn't cursor_adjustment be -1 in this case?
-                    // It isn't always...
-                    //assert(cursor_adjustment == -1);
-#ifdef BUILD_AMONG_TABLE_DEBUG
-                    if (cursor_adjustment >= 0) {
-                        printf("*** cursor_adjustment = %d >= 0 for f_result = %d\n", cursor_adjustment, f_result);
-                    }
-#endif
+                    assert(cursor_adjustment == -1);
                 }
                 w(g, "~Mamong_var = ~I3;~N");
                 if ((f_result & AFS_FLAG)) {
