@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import process from 'node:process';
 import readline from 'node:readline';
@@ -21,7 +22,8 @@ The output file consists of the stemmed words, one per line.
 {
     let input;
     let output;
-    let encoding = /**@type {BufferEncoding}*/ ('utf8');
+    /**@type {BufferEncoding}*/
+    let encoding = 'utf8';
     let language = 'English';
     let usage_error = false;
     // Skip the first two entries of argv which are the interpreter
@@ -69,7 +71,16 @@ The output file consists of the stemmed words, one per line.
                 usage_error = true;
                 break;
             }
-            encoding = /**@type {BufferEncoding}*/ (argv.shift());
+            {
+                const enc = /**@type {string}*/ (argv.shift());
+                if (!Buffer.isEncoding(enc))
+                {
+                    console.log('Unknown character encoding: ' + enc + '\n');
+                    usage_error = true;
+                    break;
+                }
+                encoding = enc;
+            }
             break;
         default:
             console.log('Unknown command line option: ' + arg + '\n');
@@ -89,13 +100,13 @@ The output file consists of the stemmed words, one per line.
        istream = fs.createReadStream(input, encoding);
     } else {
        if (process.stdin.setEncoding) process.stdin.setEncoding(encoding);
-       istream = /**@type {fs.ReadStream}*/ (/**@type {unknown}*/ (process.stdin));
+       istream = process.stdin;
     }
     if (output !== undefined) {
         ostream = fs.createWriteStream(output, encoding);
     } else {
         if (process.stdout.setEncoding) process.stdout.setEncoding(encoding);
-        ostream = /**@type {fs.WriteStream}*/ (/**@type {unknown}*/ (process.stdout));
+        ostream = process.stdout;
     }
 
     stemming(stemmer, istream, ostream);
@@ -108,8 +119,8 @@ The output file consists of the stemmed words, one per line.
 
 /**
  * @param {Stemmer} stemmer
- * @param {fs.ReadStream} input
- * @param {fs.WriteStream} output
+ * @param {NodeJS.ReadableStream} input
+ * @param {NodeJS.WritableStream} output
  */
 function stemming (stemmer, input, output) {
     const lines = readline.createInterface({
