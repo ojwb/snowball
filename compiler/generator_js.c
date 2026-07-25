@@ -1024,7 +1024,7 @@ static void generate_integer_test(struct generator * g, struct node * p) {
         w(g, "~Mreturn ");
         p->right = NULL;
     } else {
-        w(g, "~Mif (");
+        w(g, "~Mif (/**@type{boolean}*/(");
         // We want the inverse of the snowball test here.
         relop ^= 1;
     }
@@ -1034,7 +1034,7 @@ static void generate_integer_test(struct generator * g, struct node * p) {
     if (optimise_to_return) {
         w(g, ";~N");
     } else {
-        w(g, ") ");
+        w(g, ")) ");
         write_failure_after_if(g);
         g->unreachable = false;
     }
