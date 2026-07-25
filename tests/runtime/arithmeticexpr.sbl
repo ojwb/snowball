@@ -70,6 +70,10 @@ define operators as (
   $x = cursor  tomark cursor  $(x == cursor) or fail='tomark cursor moved cursor'
 
   $(y > y) or $(y > 8) or $(maxint == minint)
+
+  $y = 42
+
+  $(y == 0)
 )
 
 define pseudovars as (
