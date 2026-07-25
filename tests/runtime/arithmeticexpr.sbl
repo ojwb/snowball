@@ -69,7 +69,7 @@ define operators as (
   $x = x  $(x == -1) or fail='self assignment changed value'
   $x = cursor  tomark cursor  $(x == cursor) or fail='tomark cursor moved cursor'
 
-  $(3 > 4) or $(y > 6) or $(maxint == minint)
+  $(y > y) or $(y > 8) or $(maxint == minint)
 )
 
 define pseudovars as (
