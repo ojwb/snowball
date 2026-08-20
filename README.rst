@@ -1,86 +1,83 @@
-Snowball is a small string processing language for creating stemming algorithms
-for use in Information Retrieval, plus a collection of stemming algorithms
-implemented using it.
+Benchmarking Snowball and the Oleander stemmers
+===============================================
 
-Snowball was originally designed and built by Martin Porter.  Martin retired
-from development in 2014 and Snowball is now maintained as a community project.
-Martin originally chose the name Snowball as a tribute to SNOBOL, the excellent
-string handling language from the 1960s.  It now also serves as a metaphor for
-how the project grows by gathering contributions over time.
+This is a hacky branch to benchmark Snowball and the Oleander stemmers.
 
-The Snowball compiler translates a Snowball program into source code in another
-language - currently Ada, C, C++, C#, Dart, Go, Java, Javascript, Object
-Pascal, PHP, Python, Rust and Zig are supported.
+The Oleander stemming library works in wide characters, and this branch
+compares it with Snowball's generated C++ stemmers in wide-character
+mode, so it's testing equivalent functionality (except that some of the
+Snowball stemming algorithms may be slightly updated since the versions
+Oleander currently implements; in these cases the Snowball stemmer
+typically has an additional rule or two so we'd expect it to be slightly
+slower as a result).
 
-This repository contains the source code for the snowball compiler and the
-stemming algorithms.  The snowball compiler is written in ISO C - you'll need
-a C compiler which support C99 to build it (but the C code it generates should
-work with any ISO C compiler).
+To run the benchmarking, you need snowball-data checked out as a
+sibling directory to your snowball checkout, e.g. like this:
+::
 
-See https://snowballstem.org/ for more information about Snowball.
+    $ ls -l ~/dev
+    total 8
+    drwxr-xr-x  57 olly olly      20480 Aug 20 15:25 snowball
+    drwxr-xr-x  50 olly olly      12288 Aug 18 16:17 snowball-data
 
-What is Stemming?
-=================
+The benchmarking is done with valgrind's cachegrind tool (which
+gives an estimated cycle count), so you need to have valgrind installed.
+The big advantage of cachegrind is that you don't need to worry if
+a difference is noise due to other load on the machine at the time,
+etc.
 
-Stemming maps different forms of the same word to a common "stem" - for
-example, the English stemmer maps *connection*, *connections*, *connective*,
-*connected*, and *connecting* to *connect*.  So a search for *connected*
-would also find documents which only have the other forms.
+By default the makefile included will clone the Oleandar stemmers repo
+as a subdirectory if it doesn't already exist.  If you want to use a
+checkout you already have you should be able to symlink it in before
+you do anything else - e.g. to use ~/dev/OleanderStemmingLibrary
+run this from your snowball git repo directory:
+::
 
-This stem form is often a word itself, but this is not always the case as this
-is not a requirement for text search systems, which are the intended field of
-use.  We also aim to conflate words with the same meaning, rather than all
-words with a common linguistic root (so *awe* and *awful* don't have the same
-stem), and over-stemming is more problematic than under-stemming so we tend not
-to stem in cases that are hard to resolve.  If you want to always reduce words
-to a root form and/or get a root form which is itself a word then Snowball's
-stemming algorithms likely aren't the right answer.
+    cd oleander
+    ln -s ~/dev/OleanderStemmingLibrary OleanderStemmingLibrary
 
-Building Snowball
-=================
+To build:
+::
 
-GNU make is required to build Snowball.
-
-The build system is currently structured as two separate stages for many of the
-target languages.
-
-The first stage builds the Snowball compiler and runs it to create target
-language code (and it can also run tests on each stemmer).  The expectation is
-that you then create "distribution" tarballs of this code with ``make dist``
-(or create one for a specific target language, e.g. with ``make
-dist_libstemmer_c`` for C).  These tarballs are created in the ``dist/``
-subdirectory.
-
-To actually build the libstemmer library you then unpack and build the
-distribution tarball, e.g. for C::
-
-    tar xf dist/libstemmer_c-3.1.1.tar.gz
-    cd libstemmer_c-3.1.1
+    cd oleandar
     make
 
-Cross-compiling
----------------
+Then to run the benchmark (English by default):
+::
 
-If cross-compiling starting from the git repo, the Snowball compiler needs to
-be built with a native compiler then libstemmer with the cross-compiler.  For
-example::
+    make benchmark
 
-    make CC=cc dist_libstemmer_c
-    tar xf dist/libstemmer_c-3.1.1.tar.gz
-    cd libstemmer_c-3.1.1
-    make CC=riscv64-unknown-linux-gnu-gcc
+The benchmark also measures the stemwords harness without any actual
+stemming, and subtracts that so we're comparing just the stemming
+part.
 
-If you are cross-compiling to or from Microsoft Windows, you'll need to also
-work around an assumption in libstemmer's ``Makefile`` which sets ``EXEEXT``
-based on the OS you are building on::
+You can run it for other languages (use "dutch" for Dutch, which is
+handled specially in the makefile), e.g. you can build and benchmark
+for French in one command:
+::
 
-    ifeq ($(OS),Windows_NT)
-    EXEEXT=.exe
-    endif
+    make LANGUAGE=french clean all benchmark
 
-For example, if cross-compiling from Linux to Microsoft Windows, use something
-like this for the libstemmer build::
+I found compiling in all the Oleander stemmers in the same build gave
+me slower stemming, so it seemed fairer to test just one per build as that
+is a valid use case.
 
-    make CC=x86_64-w64-mingw32-gcc EXEEXT=.exe
+For english I get:
+::
 
-When going the other way, you'll need to use ``EXEEXT=``.
+    cachegrind.out.english-oleander: 128082261 - 44484427 = 83597834 estimated cycles
+    cachegrind.out.english-stemwords: 113091721 - 44484427 = 68607294 estimated cycles
+    cachegrind.out.english-stemwords is 17.9317325374722% faster
+
+The difference varies by stemmer, but Snowball git main is faster in
+every case (by 9% for german up to 83% for portuguese).
+
+I'm testing on Debian unstable with GCC as the compiler and using -O2
+for both Snowball and Oleander.  (I think cachegrind defaults to simulating
+based on the CPU you have so you may not get identical numbers to me even
+if you use the same OS and compiler.)
+
+You can specify the C++ compiler to use by setting ``CXX``, e.g.
+::
+
+    make CXX=clang++ LANGUAGE=french clean all benchmark

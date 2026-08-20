@@ -2,6 +2,11 @@
  * command line interface for stemming using any of the algorithms provided.
  */
 
+#ifndef NO_STEM
+# include OLEANDER_HEADER
+#endif
+#define SNOWBALL_WIDE
+
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -9,14 +14,15 @@
 #include <ctype.h>  /* for tolower */
 #include <string.h>  /* for strcmp */
 
-#include "stemmer.h"
+#define STRINGIZE(X) STRINGIZE_(X)
+#define STRINGIZE_(X) #X
 
 const char * progname;
 static int pretty = 1;
 
-template<typename Char>
+template<typename Char, typename Stemmer>
 void
-stem_file(Snowball::Stemmer& stemmer,
+stem_file(Stemmer& stemmer,
           std::basic_istream<Char>& f_in,
           std::basic_ostream<Char>& f_out)
 {
@@ -50,7 +56,7 @@ stem_file(Snowball::Stemmer& stemmer,
             }
 
             {
-                word = stemmer(word);
+                stemmer(word);
                 if (pretty == 1) {
                     f_out << " -> ";
                 } else if (pretty == 2) {
@@ -153,13 +159,8 @@ try {
         }
     }
 
-    Snowball::Stemmer* stemmer = Snowball::make_stemmer(language);
-    if (stemmer == NULL) {
-        fprintf(stderr, "language `%s' not available for stemming\n", language);
-        exit(1);
-    }
-
 #ifndef SNOWBALL_WIDE
+# error non-widechars not handled here
     /* prepare the files */
     std::ifstream f_in;
     if (in) {
@@ -200,7 +201,26 @@ try {
     f_out.imbue(c_utf8);
 
     /* do the stemming process: */
-    stem_file(*stemmer, f_in, f_out);
+#ifdef NO_STEM
+    // Allow skipping the stemming so we can measure the overhead
+    // of stemwords to get just the time to do the actual stemming.
+    (void)language;
+    struct DummyStemmer {
+        void operator()(const std::wstring&) {}
+    };
+    DummyStemmer stemmer;
+    stem_file(stemmer, f_in, f_out);
+#else
+    if (strcmp(language, STRINGIZE(LANGUAGE)) != 0) {
+	fprintf(stderr, "Built for '" STRINGIZE(LANGUAGE) "', not for '%s'\n", language);
+	exit(1);
+    }
+    // Only compile for one language at a time - compiling in all the Oleander
+    // stemmers more than doubles the percentage difference compared to
+    // Snowball for some reason.
+    stemming::OLEANDER_CLASS<> stemmer;
+    stem_file(stemmer, f_in, f_out);
+#endif
 #endif
 
     return 0;

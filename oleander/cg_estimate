@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use autodie;
+
+my $base;
+my @est;
+for my $file (@ARGV) {
+  open CGA, "cg_annotate --no-annotate \Q$file\E''|";
+
+  while (<CGA>) {
+      last if /^-- Summary/;
+  }
+  <CGA>;
+  my @fields = split /_+ /, <CGA>;
+  <CGA>;
+  my @values = split / \([0-9.]+\%\) /, <CGA>;
+  pop(@fields);
+  pop(@values);
+  my %v;
+  for (my $i = 0; $i < @fields; ++$i) {
+    my $v = $values[$i];
+    $v =~ s/,//g;
+    $v{$fields[$i]} = 0 + $v;
+    #print "$fields[$i] : [$v]\n";
+  }
+  my $Ir = $v{Ir};
+  my $L1m = $v{I1mr} + $v{D1mr} + $v{D1mw};
+  my $L2m = ($v{I2mr} // 0) + ($v{D2mr} // 0) + ($v{D2mw} // 0);
+  my $LLm = $v{ILmr} + $v{DLmr} + $v{DLmw};
+  my $Bm = $v{Bim} + $v{Bcm};
+  my $Ge = $v{Ge} // 0;
+  my $CEst = $Ir + 10 * $Bm + 10 * $L1m + 20 * $Ge + 100 * $L2m + 100 * $LLm;
+  push @est, $CEst;
+  while (<CGA>) { }
+  close CGA;
+}
+
+print $ARGV[1], ": $est[1] - $est[0] = ", $est[1] - $est[0], " estimated cycles\n";
+print $ARGV[2], ": $est[2] - $est[0] = ", $est[2] - $est[0], " estimated cycles\n";
+my $speed_up = ( 1 - ($est[2] - $est[0]) / ($est[1] - $est[0]) ) * 100;
+print "$ARGV[2] is ", abs($speed_up), "% ", ($speed_up > 0 ? "faster" : "slower"), "\n";
