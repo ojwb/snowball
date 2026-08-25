@@ -1,4 +1,4 @@
-up to: 4e6010208d0fe60880731e9b42f0a3804fd8f578
+up to: 6ddd7dd0a18b88bb0df2a4ac64f1b2fc9f856f40
 
 Snowball 3.2.0 (UNRELEASED)
 ===========================
@@ -12,6 +12,9 @@ Compiler changes
     ignored.  Bug introduced in 3.1.0.
 
   - The coverage counts for among functions were one too low.
+
+  - Drop use of `restrict` in compiler source as it seems it isn't supported by
+    MSVC 2019 and earlier.
 
 * Compiler command-line options:
 
@@ -185,9 +188,24 @@ C++
 
 * Code quality:
 
+  - Fix location of comment which should be at the start of the generated C++
+    stemmer source but was actually after all the generated header includes.
+
 * Documentation:
 
+  - Remove -c from C++ stemwords help.  We don't support specifying the
+    character set in the C++ version.
+
 * Other changes:
+
+  - Support generating wide-character stemmers which take and return
+    std::wstring and work in wchar_t.  To use:
+
+    make SNOWBALL_WIDE=1 clean
+    make SNOWBALL_WIDE=1 cxx
+    make SNOWBALL_WIDE=1 check_cxx
+
+    See #267
 
 C/C++
 -----
@@ -196,11 +214,41 @@ C/C++
 
 * Optimisations:
 
+  - Snowball `among` is now implemented as a state-machine.  This gives a
+    better theoretical performance (the new implementation is O(1) in the
+    number of cases instead of O(log(n)), and is also faster for the current
+    stemmers in benchmarks.
+
+    The generated among tables are smaller than those for the existing
+    implementation.
+
+    The generated among tables are now just arrays of unsigned short,
+    so require no dynamic load-time relocations if Snowball-generated C/C++
+    code is included in a shared library.
+
+    Among gating functions are now called by generated code, which
+    means the C/C++ compiler can inline them and optimise better.
+
+    The Snowball generated code for non-widechars now needs to know the
+    endianness of the platform it is being built on.  The runtime code
+    includes checks that should automatically detect this for GCC, clang and
+    MSVC.  If the code can't determine the endianness it will #error at
+    C/C++ compile-time.  In this case, if your platform has the POSIX
+    endian.h header then you can define HAVE_ENDIAN_H.  Otherwise you'll
+    need to define either SNOWBALL_BIGENDIAN or SNOWBALL_LITTLEENDIAN.
+
+  - We now merge Snowball string literals which are identical or which are the
+    prefix of another literal.  Partly addresses #262
+
 * Code quality:
 
 * Documentation:
 
 * Other changes:
+
+  - Flush stdout after each debug() call.  The debug command (`?`) is not a
+    performance sensitive, and it can be confusing if its output is delayed by
+    buffering.
 
 C#
 --
@@ -440,6 +488,11 @@ Behavioural changes to existing algorithms
 
 * French:
 
+  - Remove z'- which is a colloquial, nonstandard elision (for "vous"), and
+    also a prefix used to represent a nonstandard liaison within a plural noun
+    phrase, or eye dialect for a standard liaison.
+    https://en.wiktionary.org/wiki/z%27#French
+
 * German:
 
 * Greek:
@@ -636,10 +689,19 @@ Build system
   triggers warnings from MSVC).  The command `ar` is used to create a static
   library so you'll also need the mingw toolchain installed for that.
 
+* C++: Add missing dependency for runtime code.
+
+* C/C++: Rename utilities.{c,cxx} to snowball_runtime.{c,cxx} to matches the
+  header snowball_runtime.h which contains the prototypes for the external
+  functions here.
+
 * modules.txt: Fix alphabetical ordering of entries.
 
 libstemmer
 ----------
+
+* Fix incorrect ISO 639-2/B code "pers" for Persian.  This should be "per"
+  (these codes are all 3 letters long).
 
 * Reduce load time relocations in libstemmer by using a suitably sized char[]
   array in struct stemmer_encoding instead of const char*.
@@ -650,7 +712,7 @@ libstemmer
 Testsuite
 ---------
 
-* Expand runtime test coverage for `among`, `attach`, `insert`.
+* Expand runtime test coverage.  Partly addresses #301.
 
 * Add runtime test coverage for `?` (debug command).
 
