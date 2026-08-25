@@ -832,7 +832,7 @@ Build system
 * The `generate` target added in 3.1.0 now overrides `FPC` and `MCS` to do
   nothing, to avoid compiling Pascal and C# code.
 
-* Provide way to run tests under valgrind:
+* Provide a way to run tests under valgrind:
 
     make RUN_STEMWORDS='valgrind ./stemwords' check
 
