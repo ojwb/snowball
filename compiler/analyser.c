@@ -756,9 +756,11 @@ static int nodes_equivalent_(const struct node *p, const struct node *q) {
     return nodes_equivalent(p->right, q->right);
 }
 
-static struct node * make_among(struct analyser * a, struct node * p, struct node * substring) {
+static struct node * make_among(struct analyser * a, struct node * p,
+                                int literalstring_count,
+                                struct node * substring) {
     NEW(among, x);
-    NEWVEC(amongvec, v, p->number);
+    NEWVEC(amongvec, v, literalstring_count);
     struct node * q = p->left;
     struct node * starter = NULL;
     struct amongvec * w0 = v;
@@ -846,7 +848,10 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
         }
         q = q->right;
     }
-    if (w1-v != p->number) { fprintf(stderr, "oh! %d %d\n", (int)(w1-v), p->number); exit(1); }
+    if (w1-v != literalstring_count) {
+        fprintf(stderr, "oh! %d %d\n", (int)(w1-v), literalstring_count);
+        exit(1);
+    }
     x->command_count = result - 1;
     {
         NEWVEC(node*, commands, x->command_count);
@@ -921,7 +926,7 @@ static struct node * make_among(struct analyser * a, struct node * p, struct nod
                     a->tokeniser->file, w0->line_number);
         }
 
-    x->literalstring_count = p->number;
+    x->literalstring_count = literalstring_count;
     p->among = x;
 
     if (starter) {
@@ -1058,7 +1063,7 @@ static struct node * read_among(struct analyser * a) {
     struct node * substring = a->substring;
 
     a->substring = NULL;
-    p->number = 0; /* counts the number of literals */
+    int literalstring_count = 0;
     if (!get_token(a, c_bra)) return p;
     while (true) {
         struct node * q;
@@ -1073,7 +1078,7 @@ static struct node * read_among(struct analyser * a) {
                 } else {
                     hold_token(t);
                 }
-                p->number++;
+                literalstring_count++;
                 break;
             case c_bra:
                 if (previous_token == c_bra) {
@@ -1093,11 +1098,13 @@ static struct node * read_among(struct analyser * a) {
                 previous_token = token;
                 continue;
             case c_ket:
-                if (p->number == 0) {
+                if (literalstring_count == 0) {
                     report_error_location(a);
                     fprintf(stderr, "empty among(...)\n");
                 }
-                if (t->error_count == 0) p = make_among(a, p, substring);
+                if (t->error_count == 0) {
+                    p = make_among(a, p, literalstring_count, substring);
+                }
                 return p;
         }
         previous_token = token;
