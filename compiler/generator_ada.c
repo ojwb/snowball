@@ -1692,7 +1692,7 @@ static void generate_amongs(struct generator * g) {
     w(g, "~N~MAmong_String : constant String := ~+");
     int count = 0;
     for (struct among * x = g->analyser->amongs; x != NULL; x = x->next) {
-        if (x->used) {
+        if (x->used && !x->duplicate) {
             count = generate_among_string(g, x, count);
         }
     }
@@ -1701,7 +1701,7 @@ static void generate_amongs(struct generator * g) {
     int operation = 0;
     int start_pos = 1;
     for (struct among * x = g->analyser->amongs; x != NULL; x = x->next) {
-        if (x->used) {
+        if (x->used && !x->duplicate) {
             start_pos = generate_among_table(g, x, start_pos, &operation);
         }
     }

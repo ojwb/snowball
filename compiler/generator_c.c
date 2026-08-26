@@ -2567,7 +2567,7 @@ static void generate_amongs(struct generator * g) {
     struct str * s = g->outbuf;
     g->outbuf = g->declarations;
     for (struct among * x = g->analyser->amongs; x; x = x->next) {
-        if (x->used) generate_among_table(g, x);
+        if (x->used && !x->duplicate) generate_among_table(g, x);
     }
     g->outbuf = s;
 }
