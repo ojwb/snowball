@@ -26,6 +26,7 @@ extern "C" {
 #endif
 
 extern struct SN_env * SN_new_env(int alloc_size);
+extern struct SN_env * SN_new_env_no_vars(void);
 extern void SN_delete_env(struct SN_env * z);
 
 extern int SN_set_current(struct SN_env * z, int size, const symbol * s);

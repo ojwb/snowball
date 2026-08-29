@@ -20,6 +20,14 @@ extern struct SN_env * SN_new_env(int alloc_size)
     return z;
 }
 
+/* This is used for the stemmer-specific *_create_env() for stemmers where
+ * there are non non-localised variables.
+ */
+extern struct SN_env * SN_new_env_no_vars(void)
+{
+    return SN_new_env(sizeof(struct SN_env));
+}
+
 extern void SN_delete_env(struct SN_env * z)
 {
     if (z == NULL) return;

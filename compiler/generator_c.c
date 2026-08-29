@@ -2623,12 +2623,12 @@ static void generate_groupings(struct generator * g) {
 }
 
 static void generate_create(struct generator * g) {
+    if (g->analyser->variable_count == 0) return;
+
     w(g, "~N"
          "extern struct SN_env * ~pcreate_env(void) {~N~+");
 
-    if (g->analyser->variable_count == 0) {
-        w(g, "~Mreturn SN_new_env(sizeof(struct SN_env));~N");
-    } else if (g->analyser->name_count[t_string] == 0) {
+    if (g->analyser->name_count[t_string] == 0) {
         w(g, "~Mreturn SN_new_env(sizeof(SN_local));~N");
     } else {
         w(g, "~Mstruct SN_env * z = SN_new_env(sizeof(SN_local));~N"
@@ -2733,10 +2733,15 @@ static void generate_header_file(struct generator * g) {
     if (o->target_lang == LANG_C) {
         w(g, "#ifdef __cplusplus~N"
              "extern \"C\" {~N"
-             "#endif~N");            /* for C++ */
+             "#endif~N~N");          /* for C++ */
 
-        w(g, "~N"
-             "extern struct SN_env * ~pcreate_env(void);~N");
+        w(g, "struct SN_env;~N~N");
+
+        if (g->analyser->variable_count == 0) {
+            w(g, "#define ~pcreate_env SN_new_env_no_vars~N");
+        } else {
+            w(g, "extern struct SN_env * ~pcreate_env(void);~N");
+        }
 
         if (g->analyser->name_count[t_string] == 0) {
             w(g, "#define ~pclose_env SN_delete_env~N");
