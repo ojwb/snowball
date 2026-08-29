@@ -2287,6 +2287,9 @@ static int build_among_table_(struct generator * g, struct among * x,
                                x->table + offset,
                                len * sizeof(x->table[0])) == 0) {
                         SET_SIZE(x->table, offset);
+                        if (!wide) {
+                            SET_SIZE(x->table_endianness, offset);
+                        }
                         return t->start;
                     }
                 }
