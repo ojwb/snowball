@@ -28,23 +28,32 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Windows (C)
-          os: windows-latest
-          c_tests: check
-          ccache: sccache
         - name: Windows MSVC (C)
           os: windows-latest
           c_tests: check
           ccache: sccache
           CC: cl
-          CFLAGS: -nologo -std:clatest -W4
+          CFLAGS: -nologo -std:c11 -W3 -WX
+        - name: Windows MSVC clatest (C)
+          os: windows-latest
+          c_tests: check
+          ccache: sccache
+          CC: cl
+          CFLAGS: -nologo -std:clatest -W3 -WX
         - name: Windows MSVC 2026 arm (C)
           os: windows-11-vs2026-arm
           msvc_arch: arm64
           c_tests: check
           ccache: sccache
           CC: cl
-          CFLAGS: -nologo -std:clatest -W4
+          CFLAGS: -nologo -std:c11 -W3 -WX
+        - name: Windows MSVC2026 clatest arm (C)
+          os: windows-11-vs2026-arm
+          msvc_arch: arm64
+          c_tests: check
+          ccache: sccache
+          CC: cl
+          CFLAGS: -nologo -std:clatest -W3 -WX
 
       fail-fast: false
 
