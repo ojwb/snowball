@@ -1,4 +1,4 @@
-up to: 6ddd7dd0a18b88bb0df2a4ac64f1b2fc9f856f40
+up to: 66f90da769e7c95f47584ddb37a704d070f65016
 
 Snowball 3.2.0 (UNRELEASED)
 ===========================
@@ -59,7 +59,7 @@ Generic code generation changes
 
 * Optimisations:
 
-  - Improve variable localisation machinery, and fix some obscure cases
+  - Improve variable localisation machinery, and fix some contrived cases
     it was getting wrong.  All variables which are only used in one function
     after inlining in the shipped stemmers are now successfully localised.
 
@@ -83,6 +83,9 @@ Generic code generation changes
          '{a}{n}' '{w}{n}' '{y}{n}' ($(len > 5) delete) // present
          '{t}{m}{a}' ($(len >= 6) delete)
       )
+
+  - Check for identical amongs and merge their tables.  There are several
+    instances of this in tamil.sbl.
 
 * Code quality:
 
@@ -144,6 +147,12 @@ C
     but the C standard doesn't guarantee.  However none of the current stemmers
     use more than one string variable, so we now always avoid the overhead in
     practice.
+
+  - If an algorithm doesn't have any non-localised Snowball variables, then
+    its create_env() will just be `return SN_new_env(sizeof(struct SN_env));`
+    so create a common implementation of that (named SN_new_env_no_vars) which
+    we #define create_env to in the header.  This reduces code size for 31 of
+    the 38 stemmers we currently ship.
 
   - If an algorithm doesn't use strings then its close_env() only needs to call
     `SN_delete_env()`.  Both take the same parameters and return void, so we
@@ -237,8 +246,10 @@ C/C++
     endian.h header then you can define HAVE_ENDIAN_H.  Otherwise you'll
     need to define either SNOWBALL_BIGENDIAN or SNOWBALL_LITTLEENDIAN.
 
-  - We now merge Snowball string literals which are identical or which are the
-    prefix of another literal.  Partly addresses #262
+  - We now combine Snowball string literals which are identical to or a
+    substring of another literal, or where the end of one literal can be
+    overlapped with the start of another.  This reduces the size of the
+    string data, which should improve CPU cache utilisation.  Fixes #262.
 
 * Code quality:
 
@@ -380,6 +391,11 @@ Python
 * Code quality:
 
 * Documentation:
+
+  - libstemmer_c_README: Document that libstemmer aims to support C90.
+
+  - libstemmer_python_README: Note that Python 3.8 is the oldest version we CI
+    test with.
 
   - libstemmer_python_README: Fix typo.
 
@@ -786,14 +802,15 @@ Generic code generation changes
     `atlimit` is converted `$(cursor >= limit)` or `$(cursor <= limit)`
     (depending on the current direction).
 
-  + Canonicalise `delete` to `<-''`.  3.1.0 added a canonicalisation of `<-''`
-    to `delete`, but if we instead make `<-''` the canonical representation
-    then the generators can easily handle an empty string here specially (and
-    if they don't then the results are still correct), we don't have to handle
-    the delete token after tokenisation, and the optimisation of among when
-    all actions are `<-` plus a literal string can also fire when some actions
-    are `delete`.  (This case occurs in the stemmers for arabic, czech,
-    estonian, hungarian, irish, italian, polish, porter and tamil.)
+  + Canonicalise `delete` to `<-''` (but report as `delete` with `-comments`).
+    3.1.0 added a canonicalisation of `<-''` to `delete`, but if we instead
+    make `<-''` the canonical representation then the generators can easily
+    handle an empty string here specially (and if they don't then the results
+    are still correct), we don't have to handle the delete token after
+    tokenisation, and the optimisation of among when all actions are `<-` plus
+    a literal string can also fire when some actions are `delete`.  (This case
+    occurs in the stemmers for arabic, czech, estonian, hungarian, irish,
+    italian, polish, porter and tamil.)
 
 C++
 ---
