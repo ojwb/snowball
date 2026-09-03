@@ -6,6 +6,9 @@ available for download from:
 
 https://snowballstem.org/download.html
 
+We aim to keep libstemmer compatible with ISO C90.  We have CI tests which
+build using modern compilers set to C90 mode, but if you hit compatibility
+problems please report them.
 
 What is Stemming?
 -----------------
