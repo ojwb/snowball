@@ -142,13 +142,13 @@ jobs:
           c_tests: check
           ccache: sccache
           CC: cl
-          CFLAGS: -nologo -std:c11 -W4
+          CFLAGS: -nologo -std:clatest -W4
         - name: Windows MSVC 2026 arm (C)
           os: windows-11-vs2026-arm
           c_tests: check
           ccache: sccache
           CC: cl
-          CFLAGS: -nologo -std:c11 -W4
+          CFLAGS: -nologo -std:clatest -W4
 
       fail-fast: false
 
