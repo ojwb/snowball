@@ -20,6 +20,33 @@
  * we aren't using wide characters.
  */
 #ifndef SNOWBALL_WIDE
+# ifdef _MSC_VER
+#  warning _MSC_VER defined
+# endif
+# ifdef _M_AMD64
+#  warning _M_AMD64 defined
+# endif
+# ifdef _M_X64
+#  warning _M_X64 defined
+# endif
+# ifdef _M_ARM
+#  warning _M_ARM defined
+# endif
+# ifdef _M_ARM64
+#  warning _M_ARM64 defined
+# endif
+# ifdef _M_ARM64EC
+#  warning _M_ARM64EC defined
+# endif
+# ifdef _M_IX86
+#  warning _M_IX86 defined
+# endif
+# ifdef __BYTE_ORDER__
+#  warning __BYTE_ORDER__ defined
+# endif
+# ifdef BYTE_ORDER
+#  warning BYTE_ORDER defined
+# endif
 # if !defined SNOWBALL_BIGENDIAN && !defined SNOWBALL_LITTLEENDIAN
 #  ifdef __BYTE_ORDER__ /* GCC, clang */
 #   if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
