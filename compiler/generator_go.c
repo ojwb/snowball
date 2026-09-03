@@ -706,10 +706,10 @@ static void generate_hop(struct generator * g, struct node * p) {
     // Generate the AE to a temporary block so we can substitute it in
     // write_failure_if().
     struct str * ae = str_new();
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = ae;
     generate_AE(g, p->AE);
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
     g->B[0] = str_data(ae);
     g->S[0] = p->mode == m_forward ? "" : "Back";
     g->S[1] = p->AE->type == c_number ? "" : "Checked";

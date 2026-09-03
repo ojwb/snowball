@@ -702,10 +702,10 @@ static void generate_hop(struct generator * g, struct node * p) {
     // Generate the AE to a temporary block so we can substitute it in
     // write_failure_if().
     struct str * ae = str_new();
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = ae;
     generate_AE(g, p->AE);
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
     g->B[0] = str_data(ae);
     g->S[0] = p->mode == m_forward ? "" : "_back";
     g->S[1] = p->AE->type == c_number ? "" : "_checked";
@@ -1470,12 +1470,12 @@ static void generate_among_table(struct generator * g, struct among * x) {
 }
 
 static void generate_amongs(struct generator * g) {
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = g->declarations;
     for (struct among * x = g->analyser->amongs; x; x = x->next) {
         if (x->used && !x->duplicate) generate_among_table(g, x);
     }
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
 }
 
 static void set_bit(symbol * b, int i) { b[i >> 3] |= 1 << (i & 7); }
@@ -1504,12 +1504,12 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 }
 
 static void generate_groupings(struct generator * g) {
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = g->declarations;
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
         generate_grouping_table(g, q);
     }
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
 }
 
 static void generate_members(struct generator * g) {

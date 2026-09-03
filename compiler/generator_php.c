@@ -722,10 +722,10 @@ static void generate_hop(struct generator * g, struct node * p) {
     // Generate the AE to a temporary block so we can substitute it in
     // write_failure_if().
     struct str * ae = str_new();
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = ae;
     generate_AE(g, p->AE);
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
     g->B[0] = str_data(ae);
     g->S[0] = p->mode == m_forward ? "" : "_back";
     g->S[1] = p->AE->type == c_number ? "" : "_checked";
@@ -1095,7 +1095,7 @@ static void generate_define(struct generator * g, struct node * p) {
     write_block_start(g);
 
     /* Save output. */
-    struct str * saved_output = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     struct str * saved_declarations = g->declarations;
     g->outbuf = str_new();
     g->declarations = str_new();
@@ -1118,12 +1118,12 @@ static void generate_define(struct generator * g, struct node * p) {
     }
     write_block_end(g);
 
-    str_append(saved_output, g->declarations);
-    str_append(saved_output, g->outbuf);
+    str_append(saved_outbuf, g->declarations);
+    str_append(saved_outbuf, g->outbuf);
     str_delete(g->declarations);
     str_delete(g->outbuf);
     g->declarations = saved_declarations;
-    g->outbuf = saved_output;
+    g->outbuf = saved_outbuf;
 }
 
 static void generate_functionend(struct generator * g, struct node * p) {

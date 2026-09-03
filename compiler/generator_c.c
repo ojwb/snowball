@@ -2704,12 +2704,12 @@ static void generate_stringliterals(struct generator * g) {
 }
 
 static void generate_amongs(struct generator * g) {
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = g->declarations;
     for (struct among * x = g->analyser->amongs; x; x = x->next) {
         if (x->used && !x->duplicate) generate_among_table(g, x);
     }
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
 }
 
 static void set_bit(symbol * b, int i) { b[i >> 3] |= 1 << (i & 7); }
@@ -2754,12 +2754,12 @@ static void generate_grouping_table(struct generator * g, struct grouping * q) {
 }
 
 static void generate_groupings(struct generator * g) {
-    struct str * s = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     g->outbuf = g->declarations;
     for (struct grouping * q = g->analyser->groupings; q; q = q->next) {
         generate_grouping_table(g, q);
     }
-    g->outbuf = s;
+    g->outbuf = saved_outbuf;
 }
 
 static void generate_create(struct generator * g) {

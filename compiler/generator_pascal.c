@@ -1118,7 +1118,7 @@ static void generate_define(struct generator * g, struct node * p) {
     writef(g, "~MFunction T~n.~W : Boolean;~N", p);
 
     /* Save output. */
-    struct str * saved_output = g->outbuf;
+    struct str * saved_outbuf = g->outbuf;
     struct str * saved_declarations = g->declarations;
     g->outbuf = str_new();
     g->declarations = str_new();
@@ -1177,26 +1177,26 @@ static void generate_define(struct generator * g, struct node * p) {
     g->outbuf = temp;
 
     if (str_len(g->declarations) > 0) {
-        str_append_string(saved_output, "Var\n");
-        str_append(saved_output, g->declarations);
+        str_append_string(saved_outbuf, "Var\n");
+        str_append(saved_outbuf, g->declarations);
     }
 
     if (g->next_label) {
-        str_append_string(saved_output, "Label\n");
+        str_append_string(saved_outbuf, "Label\n");
 
         int num = g->next_label;
         for (int i = 0; i < num; ++i) {
-            str_append_string(saved_output, "    lab");
-            str_append_int(saved_output, i);
-            str_append_string(saved_output, i == num - 1 ? ";\n" : ",\n");
+            str_append_string(saved_outbuf, "    lab");
+            str_append_int(saved_outbuf, i);
+            str_append_string(saved_outbuf, i == num - 1 ? ";\n" : ",\n");
         }
     }
 
-    str_append(saved_output, g->outbuf);
+    str_append(saved_outbuf, g->outbuf);
     str_delete(g->declarations);
     str_delete(g->outbuf);
     g->declarations = saved_declarations;
-    g->outbuf = saved_output;
+    g->outbuf = saved_outbuf;
 }
 
 static void generate_functionend(struct generator * g, struct node * p) {
