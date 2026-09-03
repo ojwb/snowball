@@ -143,6 +143,12 @@ jobs:
           ccache: sccache
           CC: cl
           CFLAGS: -nologo -std:c11 -W3 -WX
+        - name: Windows MSVC 2025 arm64 (C)
+          os: windows-11-vs2026-arm64
+          c_tests: check
+          ccache: sccache
+          CC: cl
+          CFLAGS: -nologo -std:c11 -W3 -WX
 
       fail-fast: false
 
