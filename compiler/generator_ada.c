@@ -1215,17 +1215,20 @@ static void generate_define(struct generator * g, struct node * p) {
 
     writef(g, "~-~Mend ~W;~N", p);
 
+    struct str * temp = g->outbuf;
+    g->outbuf = saved_outbuf;
+
+    g->margin++;
+
     if (p->name->has_among) {
-        str_append_string(saved_outbuf, "      A : Integer;\n");
+        w(g, "~MA : Integer;~N");
     }
 
     if (g->temporary_used) {
-        str_append_string(saved_outbuf, "      C : Result_Index;\n");
+        w(g, "~MC : Result_Index;~N");
     }
 
     /* Declare localised variables. */
-    struct str * temp = g->outbuf;
-    g->outbuf = saved_outbuf;
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == p->name) {
             switch (name->type) {
@@ -1233,18 +1236,21 @@ static void generate_define(struct generator * g, struct node * p) {
                     assert(0);
                     break;
                 case t_integer:
-                    w(g,  "      ");
+                    write_margin(g);
                     write_varname(g, name);
-                    w(g,  " : Integer;\n");
+                    w(g, " : Integer;~N");
                     break;
                 case t_boolean:
-                    w(g,  "      ");
+                    write_margin(g);
                     write_varname(g, name);
-                    w(g,  " : Boolean;\n");
+                    w(g,  " : Boolean;~N");
                     break;
             }
         }
     }
+
+    g->margin--;
+
     g->outbuf = temp;
 
     if (g->var_number) {

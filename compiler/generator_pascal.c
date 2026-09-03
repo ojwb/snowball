@@ -1142,61 +1142,67 @@ static void generate_define(struct generator * g, struct node * p) {
     }
     w(g, "~}");
 
+    struct str * temp = g->outbuf;
+    g->outbuf = g->declarations;
+
+    g->margin++;
+
     if (amongvar_needed(p->left)) {
-        str_append_string(g->declarations, "    AmongVar : Integer;\n");
+        w(g, "~MAmongVar : Integer;~N");
     }
 
     if (g->temporary_used) {
-        str_append_string(g->declarations, "    C : Integer;\n");
+        w(g, "~MC : Integer;~N");
     }
 
     /* Declare localised variables. */
-    struct str * temp = g->outbuf;
-    g->outbuf = g->declarations;
     for (struct name * name = g->analyser->names; name; name = name->next) {
         if (name->local_to == q) {
             switch (name->type) {
                 case t_string:
-                    w(g,  "    ");
+                    write_margin(g);
                     write_varname(g, name);
-                    w(g,  " : AnsiString;\n");
+                    w(g, " : AnsiString;~N");
                     break;
                 case t_integer:
-                    w(g,  "    ");
+                    write_margin(g);
                     write_varname(g, name);
-                    w(g,  " : Integer;\n");
+                    w(g, " : Integer;~N");
                     break;
                 case t_boolean:
-                    w(g,  "    ");
+                    write_margin(g);
                     write_varname(g, name);
-                    w(g,  " : Boolean;\n");
+                    w(g, " : Boolean;~N");
                     break;
             }
         }
     }
-    g->outbuf = temp;
+    g->margin--;
+    g->outbuf = saved_outbuf;
 
     if (str_len(g->declarations) > 0) {
-        str_append_string(saved_outbuf, "Var\n");
+        w(g, "~MVar~N");
         str_append(saved_outbuf, g->declarations);
     }
 
     if (g->next_label) {
-        str_append_string(saved_outbuf, "Label\n");
+        w(g, "~MLabel~N~+");
 
         int num = g->next_label;
         for (int i = 0; i < num; ++i) {
-            str_append_string(saved_outbuf, "    lab");
-            str_append_int(saved_outbuf, i);
-            str_append_string(saved_outbuf, i == num - 1 ? ";\n" : ",\n");
+            if (i) w(g, ",~N");
+            w(g, "~Mlab");
+            write_int(g, i);
         }
+        w(g, ";~N");
+
+        g->margin--;
     }
 
-    str_append(saved_outbuf, g->outbuf);
+    str_append(saved_outbuf, temp);
     str_delete(g->declarations);
-    str_delete(g->outbuf);
+    str_delete(temp);
     g->declarations = saved_declarations;
-    g->outbuf = saved_outbuf;
 }
 
 static void generate_functionend(struct generator * g, struct node * p) {
