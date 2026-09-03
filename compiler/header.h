@@ -1,5 +1,5 @@
 #include <stdio.h>
-#if __STDC_VERSION__ < 202311l
+#if __STDC_VERSION__ < 202311l || defined _MSC_VER
 # include <stdbool.h>
 #endif
 
