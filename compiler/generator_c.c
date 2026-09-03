@@ -143,12 +143,28 @@ static void wlitch(struct generator * g, int ch) {
 }
 
 static void wlitarray(struct generator * g, const symbol * p) {  /* write literal array */
-    write_string(g, "{ ");
+    if (SIZE(p) <= 8) {
+        // Short literals are common (even after string pooling) so write them
+        // on one line to improve readability of the generated code.
+        write_string(g, "{ ");
+        for (int i = 0; i < SIZE(p); i++) {
+            if (i) write_string(g, ", ");
+            wlitch(g, p[i]);
+        }
+        write_string(g, " }");
+        return;
+    }
+
+    w(g, "{~N~+~M");
     for (int i = 0; i < SIZE(p); i++) {
-        if (i) write_string(g, ", ");
+        if (i % 8 == 0) {
+            if (i) w(g, ",~N~M");
+        } else {
+            write_string(g, ", ");
+        }
         wlitch(g, p[i]);
     }
-    write_string(g, " }");
+    w(g, "~N~-~M}");
 }
 
 static void wlitref(struct generator * g, const symbol * p) {  /* write ref to literal array */
@@ -2549,20 +2565,141 @@ static void generate_among_table(struct generator * g, struct among * x) {
 static void generate_stringliterals(struct generator * g) {
     struct str * saved_outbuf = g->outbuf;
     g->outbuf = g->declarations;
-    struct c_literalstring * s = g->c_literalstrings;
-    int n = 0;
-    while (s) {
-        write_string(g, "static const symbol s_");
-        write_int(g, n);
-        write_string(g, "[] = ");
-        wlitarray(g, s->b);
-        write_string(g, ";\n");
-        ++n;
-        struct c_literalstring * to_free = s;
-        s = s->next;
-        FREE(to_free);
+
+    int eliminated = 0;
+    int n_s = 0;
+    for (struct c_literalstring * s = g->c_literalstrings; s; s = s->next) {
+        if (s->b) {
+            int n_r = 0;
+            for (struct c_literalstring * r = g->c_literalstrings; r; r = r->next) {
+                if (r->b) {
+                    int d = (SIZE(s->b) - SIZE(r->b));
+                    if (d > 0) {
+                        // Look for r as a substring of s.
+                        int len = SIZE(r->b) * sizeof(symbol);
+                        for ( ; d; --d) {
+                            if (memcmp(s->b + d, r->b, len) == 0) {
+                                r->b = NULL;
+                                w(g, "~M#define s_");
+                                write_int(g, n_r);
+                                w(g, " (s_");
+                                write_int(g, n_s);
+                                w(g, " + ");
+                                write_int(g, d);
+                                w(g, ")~N");
+                                ++eliminated;
+                                break;
+                            }
+                        }
+                    }
+                }
+                ++n_r;
+            }
+        }
+        ++n_s;
     }
-    g->c_literalstrings = NULL;
+
+    struct pool_string {
+        symbol * b;
+        int n;
+    };
+    int n_strings = n_s - eliminated;
+    NEWVEC(pool_string, strings, n_strings);
+    {
+        int n = 0, i = 0;
+        struct c_literalstring * s = g->c_literalstrings;
+        while (s) {
+            if (s->b) {
+                if (i >= n_strings) {
+                    printf("Miscounted string pool entries\n");
+                    exit(1);
+                }
+                strings[i].b = copy_b(s->b);
+                strings[i].n = n;
+                ++i;
+            }
+            ++n;
+            struct c_literalstring * to_free = s;
+            s = s->next;
+            FREE(to_free);
+        }
+        g->c_literalstrings = NULL;
+        assert(i == n_strings);
+        n_strings = i;
+    }
+
+    // We want to find the minimal superstring, which is an NP-complete
+    // problem.  Sometimes n_strings will be small enough that we could
+    // actually do an exhaustive search, but in those cases the extra savings
+    // are going to be very small anyway.
+    //
+    // So we use a simple greedy algorithm which should find a reasonably good
+    // solution.  Each step finds the pair of strings with the largest overlap
+    // (if there are multiple pairs with the same largest overlap then we pick
+    // the pair which minimises the combined length).
+    while (n_strings > 1) {
+        int best_a = 0, best_b = 0, best_overlap = 0, best_combined = 0;
+        for (int i = 1; i < n_strings; ++i) {
+            for (int j = 0; j < i; ++j) {
+                int overlap;
+                if (SIZE(strings[i].b) >= SIZE(strings[j].b)) {
+                    overlap = SIZE(strings[j].b);
+                } else {
+                    overlap = SIZE(strings[i].b);
+                }
+                while (--overlap >= best_overlap) {
+                    if (memcmp(strings[i].b,
+                               strings[j].b + SIZE(strings[j].b) - overlap,
+                               overlap * sizeof(symbol)) == 0) {
+                        int combined = SIZE(strings[i].b) + SIZE(strings[j].b);
+                        if (best_overlap == overlap) {
+                            if (combined >= best_combined) continue;
+                        }
+                        best_a = j;
+                        best_b = i;
+                        best_overlap = overlap;
+                        best_combined = combined;
+                    } else if (memcmp(strings[i].b + SIZE(strings[i].b) - overlap,
+                               strings[j].b,
+                               overlap * sizeof(symbol)) == 0) {
+                        int combined = SIZE(strings[i].b) + SIZE(strings[j].b);
+                        if (best_overlap == overlap) {
+                            if (combined >= best_combined) continue;
+                        }
+                        best_a = i;
+                        best_b = j;
+                        best_overlap = overlap;
+                        best_combined = combined;
+                    }
+                }
+            }
+        }
+        if (best_overlap == 0) break;
+        --n_strings;
+        w(g, "~M#define s_");
+        write_int(g, strings[best_b].n);
+        w(g, " (s_");
+        write_int(g, strings[best_a].n);
+        w(g, " + ");
+        write_int(g, SIZE(strings[best_a].b) - best_overlap);
+        w(g, ")~N");
+        strings[best_a].b =
+            add_to_b(strings[best_a].b, strings[best_b].b + best_overlap,
+                     SIZE(strings[best_b].b) - best_overlap);
+        lose_b(strings[best_b].b);
+        strings[best_b] = strings[n_strings];
+    }
+
+    for (int i = 0; i < n_strings; ++i) {
+        w(g, "~Mstatic const symbol s_");
+        write_int(g, strings[i].n);
+        w(g, "[] = ");
+        wlitarray(g, strings[i].b);
+        w(g, ";~N");
+        lose_b(strings[i].b);
+    }
+    FREE(strings);
+
     g->outbuf = saved_outbuf;
 }
 
