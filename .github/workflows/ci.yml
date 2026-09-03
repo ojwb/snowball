@@ -40,6 +40,7 @@ jobs:
           CFLAGS: -nologo -std:clatest -W4
         - name: Windows MSVC 2026 arm (C)
           os: windows-11-vs2026-arm
+          msvc_arch: arm64
           c_tests: check
           ccache: sccache
           CC: cl
@@ -108,7 +109,7 @@ jobs:
       if: ${{ endsWith(matrix.CC, 'cl') }}
       uses: egor-tensin/vs-shell@v2
       with:
-        arch: x64
+        arch: ${{ matrix.msvc_arch || 'x64' }}
     - name: Hook up runtime testing
       if: ${{ inputs.runtime-tests }}
       run: |
