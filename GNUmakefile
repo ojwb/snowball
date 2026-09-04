@@ -37,11 +37,12 @@ c_src_dir = src_c
 ifeq '$(filter %cl,$(CC))' ''
 o_for_obj = -o
 o_for_exe = -o
+ARFLAGS_ = $(ARFLAGS) # Includes a trailing space.
 else
 o_for_obj = -Fo:
 o_for_exe = -Fe:
 AR = lib -nologo
-ARFLAGS = -out:\\
+ARFLAGS_ = -out:
 endif
 
 # C++
@@ -440,7 +441,7 @@ libstemmer/modules_utf8.h libstemmer/mkinc_utf8.mak: libstemmer/mkmodules.pl $(M
 libstemmer/libstemmer.o: libstemmer/modules.h $(C_LIB_HEADERS)
 
 libstemmer.a: libstemmer/libstemmer.o $(RUNTIME_OBJECTS) $(C_LIB_OBJECTS)
-	$(AR) $(ARFLAGS) $@ $^
+	$(AR) $(ARFLAGS_)$@ $^
 
 examples/%.o: examples/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(CPPFLAGS) -c $(o_for_obj) $@ $<
