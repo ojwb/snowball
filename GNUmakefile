@@ -41,7 +41,7 @@ else
 o_for_obj = -Fo:
 o_for_exe = -Fe:
 AR = lib -nologo
-ARFLAGS = -out:
+ARFLAGS = -out:\\
 endif
 
 # C++
