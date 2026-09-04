@@ -37,11 +37,11 @@ c_src_dir = src_c
 ifeq '$(filter %cl,$(CC))' ''
 o_for_obj = -o
 o_for_exe = -o
-AR = lib -nologo
-ARFLAGS = -out:
 else
 o_for_obj = -Fo:
 o_for_exe = -Fe:
+AR = lib -nologo
+ARFLAGS = -out:
 endif
 
 # C++
